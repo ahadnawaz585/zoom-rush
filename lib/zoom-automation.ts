@@ -6,13 +6,18 @@ export async function runMultipleBots(
   password: string,
   duration: number, // Duration in seconds
   botNames: string[],
-  onStatusUpdate: (botId: number, status: string) => void
+  // onStatusUpdate: (botId: number, status: string) => void
 ) {
   console.log(`Starting ${quantity} bots for meeting ${meetingId}`);
 
   if (botNames.length !== quantity) {
     throw new Error('Number of bot names must match quantity');
   }
+
+  const onStatusUpdate =(botId:any, status:any) => {
+      console.log(`Bot ${botId} status updated: ${status}`);
+      // botStatuses[botId] = status;
+    }
 
   const browser = await puppeteer.launch({
     headless: 'shell',

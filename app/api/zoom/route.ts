@@ -22,10 +22,10 @@ export async function POST(request: Request) {
       password,
       duration,
       botNames, // Pass bot names
-      (botId, status) => {
-        console.log(`Bot ${botId} status updated: ${status}`);
-        botStatuses[botId] = status;
-      }
+      // (botId, status) => {
+      //   console.log(`Bot ${botId} status updated: ${status}`);
+      //   botStatuses[botId] = status;
+      // }
     ).catch(error => {
       console.error('Error running bots:', error);
     });
