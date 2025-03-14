@@ -11,7 +11,7 @@ export async function runMultipleBots(
 ) {
   console.log(`Starting ${quantity} bots for meeting ${meetingId}`);
 
-  if (botNames.length !== quantity) {
+  if (botNames.length !== Number(quantity)) {
     throw new Error('Number of bot names must match quantity');
   }
 
