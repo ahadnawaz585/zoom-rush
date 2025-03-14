@@ -41,14 +41,14 @@ const formSchema = z.object({
     .min(9, "Meeting ID must be at least 9 characters")
     .max(11, "Meeting ID must not exceed 11 characters"),
   password: z.string().min(1, "Password is required"),
-  quantity: z.coerce
-    .number()
-    .min(1, "Quantity must be between 1 and 200")
-    .max(200, "Quantity must be between 1 and 200"),
-  duration: z.coerce
-    .number()
-    .min(1, "Duration must be between 1 and 120 minutes")
-    .max(120, "Duration must be between 1 and 120 minutes"),
+  quantity: z.string().transform(val => Number(val)).pipe(
+    z.number().min(1, "Quantity must be between 1 and 200")
+      .max(200, "Quantity must be between 1 and 200")
+  ),
+  duration: z.string().transform(val => Number(val)).pipe(
+    z.number().min(1, "Duration must be between 1 and 120 minutes")
+      .max(120, "Duration must be between 1 and 120 minutes")
+  ),
   country: z.string().min(1, "Please select a country"),
 });
 
@@ -200,11 +200,11 @@ export default function Home() {
     defaultValues: {
       meetingId: "",
       password: "",
-      quantity: "1",
-      duration: "5",
+      quantity: 1,    // Change "1" to 1
+      duration: 5,    // Change "5" to 5
       country: "",
     },
-  });
+});
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     const bots = Array.from({ length: parseInt(values.quantity) }, (_, i) => ({
