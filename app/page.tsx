@@ -203,14 +203,14 @@ export default function Home() {
     defaultValues: {
       meetingId: "",
       password: "",
-      quantity: "1",
-      duration: "5",
+      quantity: 1,    // Change from "1" to 1
+      duration: 5,    // Change from "5" to 5
       country: "",
     },
   });
 
   function onSubmit(values: z.infer<typeof formSchema>) {
-    const bots = Array.from({ length: parseInt(values.quantity) }, (_, i) => ({
+    const bots = Array.from({ length: values.quantity }, (_, i) => ({
       id: i + 1,
       name: generateBotName(values.country),
       status: "Ready",
