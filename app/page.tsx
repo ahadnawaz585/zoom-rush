@@ -239,8 +239,8 @@ export default function Home() {
         body: JSON.stringify({
           meetingId: values.meetingId,
           password: values.password,
-          quantity: parseInt(values.quantity),
-          duration: parseInt(values.duration) * 60, // Convert to seconds
+          quantity: values.quantity,
+          duration: values.duration * 60, // Convert to seconds
           botNames: generatedBots.map(bot => bot.name), // Send bot names
         }),
       });
