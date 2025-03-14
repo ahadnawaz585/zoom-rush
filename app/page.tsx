@@ -41,17 +41,14 @@ const formSchema = z.object({
     .min(9, "Meeting ID must be at least 9 characters")
     .max(11, "Meeting ID must not exceed 11 characters"),
   password: z.string().min(1, "Password is required"),
-  quantity: z
-    .string()
-    .transform((val) => parseInt(val, 10))
-    .refine((val) => val >= 1 && val <= 200, "Quantity must be between 1 and 200"),
-  duration: z
-    .string()
-    .transform((val) => parseInt(val, 10))
-    .refine(
-      (val) => val >= 1 && val <= 120,
-      "Duration must be between 1 and 120 minutes"
-    ),
+  quantity: z.coerce
+    .number()
+    .min(1, "Quantity must be between 1 and 200")
+    .max(200, "Quantity must be between 1 and 200"),
+  duration: z.coerce
+    .number()
+    .min(1, "Duration must be between 1 and 120 minutes")
+    .max(120, "Duration must be between 1 and 120 minutes"),
   country: z.string().min(1, "Please select a country"),
 });
 
