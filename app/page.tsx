@@ -261,7 +261,7 @@ export default function Home() {
           );
         }
   
-        simulateStatusUpdates(parseInt(values.quantity));
+        simulateStatusUpdates(values.quantity);
       } else {
         toast.error("Failed to join meeting", {
           description: data.message || "An error occurred while joining the meeting",
