@@ -21,7 +21,7 @@ export async function runMultipleBots(
 
   const browser = await puppeteer.launch({
     headless: 'shell',
-    executablePath: 'C:\\Users\\AHAD\\.cache\\puppeteer\\chrome\\win64-127.0.6533.88\\chrome-win64\\chrome.exe',
+    // executablePath: 'C:\\Users\\AHAD\\.cache\\puppeteer\\chrome\\win64-127.0.6533.88\\chrome-win64\\chrome.exe',
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
