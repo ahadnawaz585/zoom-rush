@@ -5,7 +5,7 @@ export async function POST(request: Request) {
   try {
     const { meetingId, password, quantity, duration, botNames } = await request.json();
 
-    if (!botNames || botNames.length !== quantity) {
+    if (!botNames || botNames.length !== parseInt(quantity)) {
       return NextResponse.json(
         { success: false, message: 'Invalid bot names provided' },
         { status: 400 }
