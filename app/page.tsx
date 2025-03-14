@@ -207,7 +207,7 @@ export default function Home() {
 });
 
   function onSubmit(values: z.infer<typeof formSchema>) {
-    const bots = Array.from({ length: parseInt(values.quantity) }, (_, i) => ({
+    const bots = Array.from({ length: values.quantity }, (_, i) => ({
       id: i + 1,
       name: generateBotName(values.country),
       status: "Ready",
@@ -236,8 +236,8 @@ export default function Home() {
         body: JSON.stringify({
           meetingId: values.meetingId,
           password: values.password,
-          quantity: parseInt(values.quantity),
-          duration: parseInt(values.duration) * 60, // Convert to seconds
+          quantity: values.quantity,
+          duration: values.duration* 60, // Convert to seconds
           botNames: generatedBots.map(bot => bot.name), // Send bot names
         }),
       });
@@ -258,7 +258,7 @@ export default function Home() {
           );
         }
   
-        simulateStatusUpdates(parseInt(values.quantity));
+        simulateStatusUpdates(values.quantity);
       } else {
         toast.error("Failed to join meeting", {
           description: data.message || "An error occurred while joining the meeting",
