@@ -6,7 +6,8 @@ export async function runMultipleBots(
   password: string,
   duration: number, // Duration in seconds
   botNames: string[],
-  // onStatusUpdate: (botId: number, status: string) => void
+  onStatusUpdate: (botId: number, status: string) => void = (botId, status) =>
+    console.log(`Bot ${botId} status updated: ${status}`)
 ) {
   console.log(`Starting ${quantity} bots for meeting ${meetingId}`);
 
@@ -14,27 +15,25 @@ export async function runMultipleBots(
     throw new Error('Number of bot names must match quantity');
   }
 
-  const onStatusUpdate =(botId:any, status:any) => {
-      console.log(`Bot ${botId} status updated: ${status}`);
-      // botStatuses[botId] = status;
-    }
-
   const browser = await puppeteer.launch({
-    headless: 'shell',
-    // executablePath: 'C:\\Users\\AHAD\\.cache\\puppeteer\\chrome\\win64-127.0.6533.88\\chrome-win64\\chrome.exe',
+    headless: true, // Use 'new' for modern headless mode
+    // Uncomment if needed: executablePath: 'C:\\Users\\AHAD\\.cache\\puppeteer\\chrome\\win64-127.0.6533.88\\chrome-win64\\chrome.exe',
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage',
       '--disable-gpu',
       '--disable-extensions',
-      '--window-size=800,600', // Smaller window size to save resources
+      '--window-size=800,600',
+      '--disable-background-timer-throttling', // Keep bots active
+      '--disable-renderer-backgrounding',
     ],
+    timeout: 10000, // Faster launch timeout
   });
 
   const bots = Array.from({ length: quantity }, (_, i) => i + 1);
   const botPromises = bots.map(async (botId) => {
-    let page:any;
+    let page;
     try {
       console.log(`Bot ${botId} (${botNames[botId - 1]}): Initializing...`);
       onStatusUpdate(botId, 'Initializing');
@@ -43,7 +42,7 @@ export async function runMultipleBots(
 
       // Optimize resource usage
       await page.setRequestInterception(true);
-      page.on('request', (req:any) => {
+      page.on('request', (req) => {
         if (['image', 'stylesheet', 'font', 'media'].includes(req.resourceType())) {
           req.abort();
         } else {
@@ -51,47 +50,42 @@ export async function runMultipleBots(
         }
       });
 
+      // Speed up navigation
       console.log(`Bot ${botId} (${botNames[botId - 1]}): Navigating to Zoom URL`);
-      const meetingUrl = `https://zoom.us/wc/join/${meetingId}`;
-      await page.goto(meetingUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }); // Reduced timeout
+      await page.goto(`https://zoom.us/wc/join/${meetingId}`, {
+        waitUntil: 'domcontentloaded',
+        timeout: 10000, // Reduced from 15s
+      });
 
       // Step 1: Enter Passcode
-      console.log(`Bot ${botId} (${botNames[botId - 1]}): Waiting for passcode field`);
-      await page.waitForSelector('#input-for-pwd', { timeout: 5000 });
+      console.log(`Bot ${botId} (${botNames[botId - 1]}): Entering passcode`);
+      await page.waitForSelector('#input-for-pwd', { timeout: 3000 });
       await page.type('#input-for-pwd', password, { delay: 0 });
 
       // Step 2: Enter Name
       console.log(`Bot ${botId} (${botNames[botId - 1]}): Entering name`);
-      await page.waitForSelector('#input-for-name', { timeout: 5000 });
+      await page.waitForSelector('#input-for-name', { timeout: 3000 });
       await page.type('#input-for-name', botNames[botId - 1], { delay: 0 });
 
       // Step 3: Click Join Button
       console.log(`Bot ${botId} (${botNames[botId - 1]}): Clicking join button`);
-      await page.waitForSelector('.preview-join-button', { timeout: 5000 });
-      await page.evaluate(() => {
-        const joinButton:any = document.querySelector('.preview-join-button');
-        joinButton.classList.remove('disabled', 'zm-btn--disabled');
-        joinButton.click();
-      });
+      await page.waitForSelector('.preview-join-button', { timeout: 3000 });
+      await page.click('.preview-join-button'); // Simplified, Zoom enables it automatically
 
-      // Step 4: Wait for Meeting to Load (with fallback)
-      console.log(`Bot ${botId} (${botNames[botId - 1]}): Waiting for meeting to load`);
+      // Step 4: Wait for Meeting to Load
+      console.log(`Bot ${botId} (${botNames[botId - 1]}): Waiting for meeting`);
       try {
-        await page.waitForSelector('.join-audio-container', { timeout: 10000 });
+        await page.waitForSelector('.join-audio-container', { timeout: 8000 });
       } catch (e) {
-        console.log(`Bot ${botId} (${botNames[botId - 1]}): Fallback - assuming joined`);
-        // Fallback: Check for any meeting-related element if .join-audio-container fails
-        await page.waitForSelector('body', { timeout: 5000 }); // Basic page load check
+        console.log(`Bot ${botId} (${botNames[botId - 1]}): Fallback - checking meeting`);
+        await page.waitForSelector('body', { timeout: 3000 });
       }
       console.log(`Bot ${botId} (${botNames[botId - 1]}): Connected`);
       onStatusUpdate(botId, 'Connected');
 
-      // Stay in the meeting for exact duration
+      // Stay in the meeting
       const startTime = Date.now();
-      await new Promise((resolve) => {
-        const timeout = setTimeout(resolve, duration * 1000);
-        page.on('close', () => clearTimeout(timeout));
-      });
+      await new Promise((resolve) => setTimeout(resolve, duration * 1000));
       const elapsedTime = (Date.now() - startTime) / 1000;
       console.log(`Bot ${botId} (${botNames[botId - 1]}): Stayed for ${elapsedTime.toFixed(2)} seconds`);
 
