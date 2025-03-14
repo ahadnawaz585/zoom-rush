@@ -16,19 +16,21 @@ export async function POST(request: Request) {
 
     const botStatuses: Record<number, string> = {};
 
-    runMultipleBots(
+    // Define the status update callback
+    const onStatusUpdate = (botId: number, status: string) => {
+      console.log(`Bot ${botId} status updated: ${status}`);
+      botStatuses[botId] = status;
+    };
+
+    // Start the bots and wait for completion
+    await runMultipleBots(
       quantity,
       meetingId,
       password,
       duration,
-      botNames, // Pass bot names
-      // (botId, status) => {
-      //   console.log(`Bot ${botId} status updated: ${status}`);
-      //   botStatuses[botId] = status;
-      // }
-    ).catch(error => {
-      console.error('Error running bots:', error);
-    });
+      botNames,
+      onStatusUpdate
+    );
 
     console.log('Bots started, sending response');
     return NextResponse.json({

@@ -16,8 +16,7 @@ export async function runMultipleBots(
   }
 
   const browser = await puppeteer.launch({
-    headless: true, // Use 'new' for modern headless mode
-    // Uncomment if needed: executablePath: 'C:\\Users\\AHAD\\.cache\\puppeteer\\chrome\\win64-127.0.6533.88\\chrome-win64\\chrome.exe',
+    headless: true,
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
@@ -25,10 +24,10 @@ export async function runMultipleBots(
       '--disable-gpu',
       '--disable-extensions',
       '--window-size=800,600',
-      '--disable-background-timer-throttling', // Keep bots active
+      '--disable-background-timer-throttling',
       '--disable-renderer-backgrounding',
     ],
-    timeout: 10000, // Faster launch timeout
+    timeout: 10000,
   });
 
   const bots = Array.from({ length: quantity }, (_, i) => i + 1);
@@ -40,7 +39,6 @@ export async function runMultipleBots(
 
       page = await browser.newPage();
 
-      // Optimize resource usage
       await page.setRequestInterception(true);
       page.on('request', (req) => {
         if (['image', 'stylesheet', 'font', 'media'].includes(req.resourceType())) {
@@ -50,29 +48,25 @@ export async function runMultipleBots(
         }
       });
 
-      // Speed up navigation
       console.log(`Bot ${botId} (${botNames[botId - 1]}): Navigating to Zoom URL`);
+      onStatusUpdate(botId, 'Joining');
       await page.goto(`https://zoom.us/wc/join/${meetingId}`, {
         waitUntil: 'domcontentloaded',
-        timeout: 10000, // Reduced from 15s
+        timeout: 10000,
       });
 
-      // Step 1: Enter Passcode
       console.log(`Bot ${botId} (${botNames[botId - 1]}): Entering passcode`);
       await page.waitForSelector('#input-for-pwd', { timeout: 3000 });
       await page.type('#input-for-pwd', password, { delay: 0 });
 
-      // Step 2: Enter Name
       console.log(`Bot ${botId} (${botNames[botId - 1]}): Entering name`);
       await page.waitForSelector('#input-for-name', { timeout: 3000 });
       await page.type('#input-for-name', botNames[botId - 1], { delay: 0 });
 
-      // Step 3: Click Join Button
       console.log(`Bot ${botId} (${botNames[botId - 1]}): Clicking join button`);
       await page.waitForSelector('.preview-join-button', { timeout: 3000 });
-      await page.click('.preview-join-button'); // Simplified, Zoom enables it automatically
+      await page.click('.preview-join-button');
 
-      // Step 4: Wait for Meeting to Load
       console.log(`Bot ${botId} (${botNames[botId - 1]}): Waiting for meeting`);
       try {
         await page.waitForSelector('.join-audio-container', { timeout: 8000 });
@@ -83,7 +77,6 @@ export async function runMultipleBots(
       console.log(`Bot ${botId} (${botNames[botId - 1]}): Connected`);
       onStatusUpdate(botId, 'Connected');
 
-      // Stay in the meeting
       const startTime = Date.now();
       await new Promise((resolve) => setTimeout(resolve, duration * 1000));
       const elapsedTime = (Date.now() - startTime) / 1000;
