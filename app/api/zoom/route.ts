@@ -1,50 +1,45 @@
 import { NextResponse } from 'next/server';
-import { runMultipleBots } from '@/lib/zoom-automation';
+import axios from 'axios';
+import dotenv from 'dotenv';
+import { ZoomClient } from '@/lib/zoom'; // Adjust the path to your ZoomClient file
 
-export async function POST(request: Request) {
+dotenv.config();
+
+const zoomClient = new ZoomClient();
+
+export async function POST(req: Request) {
   try {
-    const { meetingId, password, quantity, duration, botNames } = await request.json();
+    const { meetingId, password, quantity, duration, botNames } = await req.json();
 
-    if (!botNames || botNames.length !== parseInt(quantity)) {
-      return NextResponse.json(
-        { success: false, message: 'Invalid bot names provided' },
-        { status: 400 }
-      );
+    // If no meetingId is provided, create a new meeting
+    let meetingDetails = { id: meetingId, join_url: '', password };
+    if (!meetingId || meetingId === '') {
+      const meeting = await zoomClient.createMeeting();
+      meetingDetails = {
+        id: meeting.id,
+        join_url: meeting.join_url,
+        password: meeting.password,
+      };
     }
 
-    console.log('Received request to start bots:', { meetingId, quantity, duration, botNames });
+    // Simulate joining bots (in a real scenario, you'd use the Zoom Web SDK client-side)
+    const initialStatuses = botNames.map((name: string, index: number) => ({
+      id: index + 1,
+      name,
+      status: 'Initializing',
+    }));
 
-    const botStatuses: Record<number, string> = {};
-
-    // Define the status update callback
-    const onStatusUpdate = (botId: number, status: string) => {
-      console.log(`Bot ${botId} status updated: ${status}`);
-      botStatuses[botId] = status;
-    };
-
-    // Start the bots and wait for completion
-    await runMultipleBots(
-      quantity,
-      meetingId,
-      password,
-      duration,
-      botNames,
-      onStatusUpdate
-    );
-
-    console.log('Bots started, sending response');
     return NextResponse.json({
       success: true,
-      message: 'Bots started successfully',
-      initialStatuses: Object.keys(botStatuses).map(id => ({
-        id: parseInt(id),
-        status: botStatuses[parseInt(id)],
-      })),
+      meetingId: meetingDetails.id,
+      joinUrl: meetingDetails.join_url,
+      password: meetingDetails.password,
+      initialStatuses,
     });
   } catch (error) {
-    console.error('Failed to start bots:', error);
+    console.error('Zoom API Error:', error);
     return NextResponse.json(
-      { success: false, message: 'Failed to start bots' },
+      { success: false, message: 'Failed to process Zoom request' },
       { status: 500 }
     );
   }
