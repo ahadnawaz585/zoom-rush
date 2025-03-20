@@ -45,6 +45,7 @@
     "@zoomus/websdk": "^2.18.3",
     "autoprefixer": "10.4.15",
     "axios": "^1.8.3",
+    "bcryptjs": "^3.0.2",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "cmdk": "^1.0.0",
@@ -53,6 +54,7 @@
     "embla-carousel-react": "^8.3.0",
     "eslint": "8.49.0",
     "eslint-config-next": "13.5.1",
+    "firebase": "^11.5.0",
     "input-otp": "^1.2.4",
     "js-cookie": "^3.0.5",
     "lucide-react": "^0.446.0",
@@ -74,6 +76,7 @@
     "tailwindcss": "3.3.3",
     "tailwindcss-animate": "^1.0.7",
     "typescript": "5.2.2",
+    "uuid": "^11.1.0",
     "vaul": "^0.9.9",
     "zod": "^3.24.2"
   },

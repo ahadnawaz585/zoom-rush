@@ -253,6 +253,7 @@ export default function Home() {
           </h1>
           <button onClick={()=>{
              Cookies.remove("session");
+             Cookies.remove("adminSession");
              window.location.reload();
           }}>Logout</button>
         </div>
