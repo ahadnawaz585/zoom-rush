@@ -9,7 +9,7 @@ import PreviousSchedule from "@/components/shared/previous-schedule";
 import { generateBotName } from "@/lib/botUtils";
 import { useRouter } from "next/navigation";
 import { Country } from "../services/countryApi";
-
+import Cookies from "js-cookie";
 // Defer Zoom SDK imports
 let ZoomMtg: any = null;
 
@@ -206,7 +206,7 @@ export default function Home() {
         ZoomMtg.prepareWebSDK();
         
         // Assign to window for global access
-        window.ZoomMtg = ZoomMtg;
+        // window.ZoomMtg = ZoomMtg;
         
         return ZoomMtg;
       } catch (error) {
@@ -251,6 +251,10 @@ export default function Home() {
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
             Zoom Meeting Bot Manager
           </h1>
+          <button onClick={()=>{
+             Cookies.remove("session");
+             window.location.reload();
+          }}>Logout</button>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-grow">
