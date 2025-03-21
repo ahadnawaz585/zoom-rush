@@ -14,6 +14,9 @@ let cachedCountries: Country[] | null = null;
 // Implement indexed lookup for faster country retrieval by code
 const countryByCodeIndex: Record<string, Country> = {};
 
+// Constant for maximum bot limit
+export const MAX_BOT_LIMIT = 200;
+
 export async function fetchCountries(): Promise<Country[]> {
   try {
     // Using the REST Countries API with fields param to reduce payload size
@@ -73,6 +76,11 @@ export async function getCountryByCode(code: string): Promise<Country | undefine
     await getCountries();
   }
   return countryByCodeIndex[code];
+}
+
+// Helper function to enforce bot limits
+export function enforceBotLimit(quantity: number): number {
+  return Math.min(quantity, MAX_BOT_LIMIT);
 }
 
 // Add method to clear cache if needed

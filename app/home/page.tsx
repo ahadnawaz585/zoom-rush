@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import MeetingForm from "@/components/shared/meeting-form";
 import BotList from "@/components/shared/bot-list";
 import PreviousSchedule from "@/components/shared/previous-schedule";
+import Navbar from "@/components/Navbar"; // Import the new Navbar component
 import { generateBotName } from "@/lib/botUtils";
 import { useRouter } from "next/navigation";
 import { Country } from "../services/countryApi";
@@ -66,11 +67,8 @@ export default function Home() {
         setCountries(countriesData);
         setCountryMap(countryMapData);
         
-        // Generate initial bots after loading countries
-        if (countriesData.length > 0) {
-          const initialCountryCode = formValues.countryCode || countriesData[0].code;
-          generateBotsForCountry(initialCountryCode, formValues.quantity);
-        }
+        // Remove automatic bot generation on load
+        // We'll only generate bots when the button is clicked
       } catch (error) {
         console.error("Failed to load countries:", error);
         toast.error("Failed to load countries data", {
@@ -114,29 +112,21 @@ export default function Home() {
     setGeneratedBots(bots);
   }, [getCountryByCode]);
   
-  // Handle form value changes
+  // Handle form value changes - only updates state, doesn't generate bots
   const handleFormChange = useCallback((newValues: Partial<FormValues>) => {
     setFormValues(prev => {
       const updated = { ...prev, ...newValues };
-      
-      // If country code changed, regenerate bots immediately
-      if (newValues.countryCode && newValues.countryCode !== prev.countryCode) {
-        generateBotsForCountry(newValues.countryCode, updated.quantity);
-      }
-      // If quantity changed, regenerate bots with current country code
-      else if (newValues.quantity && newValues.quantity !== prev.quantity) {
-        generateBotsForCountry(updated.countryCode, newValues.quantity);
-      }
-      
+      // No longer automatically generate bots when form values change
       return updated;
     });
-  }, [generateBotsForCountry]);
+  }, []);
   
-  // Fast bot generation function (now just a wrapper around generateBotsForCountry)
+  // Bot generation function - only called when button is clicked
   const handleBotsGenerated = useCallback(async (quantity: number, countryCode: string) => {
     setIsLoading(true);
     
     try {
+      // This is now the only place where bots are generated
       generateBotsForCountry(countryCode, quantity);
       
       const country = getCountryByCode(countryCode);
@@ -244,37 +234,31 @@ export default function Home() {
   }
 
   return (
-    <div className="h-screen overflow-auto bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-4 sm:p-6 lg:p-8">
-      <div className="max-w-6xl mx-auto min-h-full flex flex-col">
-        <div className="flex items-center justify-center mb-8">
-          <Video className="h-8 w-8 text-blue-500 mr-3" />
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-            Zoom Meeting Bot Manager
-          </h1>
-          <button onClick={()=>{
-             Cookies.remove("session");
-             Cookies.remove("adminSession");
-             window.location.reload();
-          }}>Logout</button>
-        </div>
+    <div className="h-screen flex flex-col bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+      {/* Navbar at the top */}
+      <Navbar />
+      
+      {/* Main content */}
+      <div className="flex-grow overflow-auto p-4 sm:p-6 lg:p-8">
+        <div className="max-w-6xl mx-auto flex flex-col h-full">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-grow">
+            <MeetingForm
+              onBotsGenerated={handleBotsGenerated}
+              onJoinMeeting={joinMeeting}
+              onFormChange={handleFormChange}
+              formValues={formValues}
+              isJoining={isJoining}
+              isLoading={isLoading}
+              hasGeneratedBots={generatedBots.length > 0}
+              countries={countries}
+            />
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-grow">
-          <MeetingForm
-            onBotsGenerated={handleBotsGenerated}
-            onJoinMeeting={joinMeeting}
-            onFormChange={handleFormChange}
-            formValues={formValues}
-            isJoining={isJoining}
-            isLoading={isLoading}
-            hasGeneratedBots={generatedBots.length > 0}
-            countries={countries}
-          />
+            <BotList bots={generatedBots} />
+          </div>
 
-          <BotList bots={generatedBots} />
-        </div>
-
-        <div className="mt-6">
-          <PreviousSchedule />
+          <div className="mt-6">
+            <PreviousSchedule />
+          </div>
         </div>
       </div>
     </div>

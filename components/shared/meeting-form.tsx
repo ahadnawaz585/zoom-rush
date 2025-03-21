@@ -1,293 +1,3 @@
-// // components/MeetingForm.js
-// "use client";
-
-// import { zodResolver } from "@hookform/resolvers/zod";
-// import { useForm } from "react-hook-form";
-// import * as z from "zod";
-// import { Users, Globe, Clock, Play } from "lucide-react";
-// import {
-//   Form,
-//   FormControl,
-//   FormField,
-//   FormItem,
-//   FormLabel,
-//   FormMessage,
-// } from "@/components/ui/form";
-// import { Input } from "@/components/ui/input";
-// import { Button } from "@/components/ui/button";
-// import {
-//   Select,
-//   SelectContent,
-//   SelectItem,
-//   SelectTrigger,
-//   SelectValue,
-// } from "@/components/ui/select";
-// import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-// import { countries } from "@/app/data/constants";
-
-// // const formSchema = z.object({
-
-// //   meetingId: z
-// //     .string()
-// //     .min(9, "Meeting ID must be at least 9 characters")
-// //     .max(11, "Meeting ID must not exceed 11 characters"),
-// //   password: z.string().min(1, "Password is required"),
-// //   quantity: z
-// //     .string()
-// //     .transform((val) => Number(val))
-// //     .pipe(
-// //       z.number().min(1, "Quantity must be between 1 and 200").max(200, "Quantity must be between 1 and 200")
-// //     ),
-// //   duration: z
-// //     .string()
-// //     .transform((val) => Number(val))
-// //     .pipe(
-// //       z.number().min(1, "Duration must be between 1 and 120 minutes").max(120, "Duration must be between 1 and 120 minutes")
-// //     ),
-// //   country: z.string().min(1, "Please select a country"),
-// // });
-
-// const formSchema = z.object({
-//   meetingId: z
-//     .string()
-//     .min(9, "Meeting ID must be at least 9 characters")
-//     .max(11, "Meeting ID must not exceed 11 characters"),
-//   password: z.string().min(1, "Password is required"),
-//   quantity: z
-//     .number()
-//     .min(1, "Quantity must be between 1 and 200")
-//     .max(200, "Quantity must be between 1 and 200")
-//     .default(1), // Default value to prevent errors
-//   duration: z
-//     .number()
-//     .min(1, "Duration must be between 1 and 120 minutes")
-//     .max(120, "Duration must be between 1 and 120 minutes")
-//     .default(5),
-//   country: z.string().min(1, "Please select a country"),
-// });
-
-
-// interface MeetingFormProps {
-//   onBotsGenerated: (quantity: number, country: string) => void;
-//   onJoinMeeting: (values: z.infer<typeof formSchema>) => void;
-//   isJoining: boolean;
-//   hasGeneratedBots: boolean;
-// }
-
-// export default function MeetingForm({
-//   onBotsGenerated,
-//   onJoinMeeting,
-//   isJoining,
-//   hasGeneratedBots,
-// }: MeetingFormProps) {
-//   const form = useForm<z.infer<typeof formSchema>>({
-//     resolver: zodResolver(formSchema),
-//     defaultValues: {
-//       meetingId: "",
-//       password: "",
-//       quantity: 1,
-//       duration: 5,
-//       country: "",
-//     },
-//   });
-
-//   function onSubmit(values: z.infer<typeof formSchema>) {
-//     onBotsGenerated(values.quantity, values.country);
-//   }
-
-//   return (
-//     <Card>
-//       <CardHeader>
-//         <CardTitle>New Meeting Configuration</CardTitle>
-//       </CardHeader>
-//       <CardContent>
-//         <Form {...form}>
-//           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-//             <div className="grid grid-cols-2 gap-4">
-//               <FormField
-//                 control={form.control}
-//                 name="meetingId"
-//                 render={({ field }) => (
-//                   <FormItem>
-//                     <FormLabel>Meeting ID</FormLabel>
-//                     <FormControl>
-//                       <Input placeholder="Enter meeting ID" {...field} />
-//                     </FormControl>
-//                     <FormMessage />
-//                   </FormItem>
-//                 )}
-//               />
-
-//               <FormField
-//                 control={form.control}
-//                 name="password"
-//                 render={({ field }) => (
-//                   <FormItem>
-//                     <FormLabel>Password</FormLabel>
-//                     <FormControl>
-//                       <Input
-//                         type="password"
-//                         placeholder="Enter password"
-//                         {...field}
-//                       />
-//                     </FormControl>
-//                     <FormMessage />
-//                   </FormItem>
-//                 )}
-//               />
-//             </div>
-
-//             <div className="grid grid-cols-3 gap-4">
-//               {/* <FormField
-//                 control={form.control}
-//                 name="quantity"
-//                 render={({ field }) => (
-//                   <FormItem>
-//                     <FormLabel>
-//                       <div className="flex items-center gap-2">
-//                         <Users className="h-4 w-4" />
-//                         <span>Quantity</span>
-//                       </div>
-//                     </FormLabel>
-//                     <FormControl>
-//                       <Input type="number" min="1" max="200" {...field} />
-//                     </FormControl>
-//                     <FormMessage />
-//                   </FormItem>
-//                 )}
-//               /> */}
-
-// <FormField
-//   control={form.control}
-//   name="quantity"
-//   render={({ field }) => (
-//     <FormItem>
-//       <FormLabel>
-//         <div className="flex items-center gap-2">
-//           <Users className="h-4 w-4" />
-//           <span>Quantity</span>
-//         </div>
-//       </FormLabel>
-//       <FormControl>
-//         <Input
-//           type="number"
-//           min="1"
-//           max="200"
-//           {...field}
-//           onChange={(e) => field.onChange(Number(e.target.value))} // Ensure it's a number
-//         />
-//       </FormControl>
-//       <FormMessage />
-//     </FormItem>
-//   )}
-// />
-
-
-//               {/* <FormField
-//                 control={form.control}
-//                 name="duration"
-//                 render={({ field }) => (
-//                   <FormItem>
-//                     <FormLabel>
-//                       <div className="flex items-center gap-2">
-//                         <Clock className="h-4 w-4" />
-//                         <span>Duration</span>
-//                       </div>
-//                     </FormLabel>
-//                     <FormControl>
-//                       <Input type="number" min="1" max="120" {...field} />
-//                     </FormControl>
-//                     <FormMessage />
-//                   </FormItem>
-//                 )}
-//               /> */}
-//               <FormField
-//   control={form.control}
-//   name="duration"
-//   render={({ field }) => (
-//     <FormItem>
-//       <FormLabel>
-//         <div className="flex items-center gap-2">
-//           <Clock className="h-4 w-4" />
-//           <span>Duration</span>
-//         </div>
-//       </FormLabel>
-//       <FormControl>
-//         <Input
-//           type="number"
-//           min="1"
-//           max="120"
-//           {...field}
-//           onChange={(e) => field.onChange(Number(e.target.value))}
-//         />
-//       </FormControl>
-//       <FormMessage />
-//     </FormItem>
-//   )}
-// />
-
-
-//               <FormField
-//                 control={form.control}
-//                 name="country"
-//                 render={({ field }) => (
-//                   <FormItem>
-//                     <FormLabel>
-//                       <div className="flex items-center gap-2">
-//                         <Globe className="h-4 w-4" />
-//                         <span>Country</span>
-//                       </div>
-//                     </FormLabel>
-//                     <Select
-//                       onValueChange={field.onChange}
-//                       defaultValue={field.value}
-//                     >
-//                       <FormControl>
-//                         <SelectTrigger>
-//                           <SelectValue placeholder="Select" />
-//                         </SelectTrigger>
-//                       </FormControl>
-//                       <SelectContent className="max-h-[300px]">
-//                         {Object.entries(countries).map(([code, name]) => (
-//                           <SelectItem key={code} value={code}>
-//                             {name}
-//                           </SelectItem>
-//                         ))}
-//                       </SelectContent>
-//                     </Select>
-//                     <FormMessage />
-//                   </FormItem>
-//                 )}
-//               />
-//             </div>
-
-//             <div className="flex gap-2">
-//               <Button
-//                 type="submit"
-//                 className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
-//               >
-//                 Generate Bots
-//               </Button>
-//               <Button
-//                 type="button"
-//                 onClick={() => onJoinMeeting(form.getValues())}
-//                 disabled={isJoining || !hasGeneratedBots}
-//                 className="bg-green-600 hover:bg-green-700 text-white"
-//               >
-//                 <Play className="w-4 h-4 mr-2" />
-//                 Join Meeting
-//               </Button>
-//             </div>
-//           </form>
-//         </Form>
-//       </CardContent>
-//     </Card>
-//   );
-// }
-
-
-
-
 // components/shared/meeting-form.tsx
 "use client";
 
@@ -314,7 +24,9 @@ import {
   SelectValue
 } from "@/components/ui/select";
 import { Country } from "@/app/services/countryApi";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { toast } from "@/hooks/use-toast";
+
 
 const formSchema = z.object({
   meetingId: z
@@ -356,6 +68,11 @@ export default function MeetingForm({
   hasGeneratedBots,
   countries
 }: MeetingFormProps) {
+  const [quantityError, setQuantityError] = useState<string | null>(null);
+  const [internalQuantity, setInternalQuantity] = useState<string>("5");
+  const [isFormValid, setIsFormValid] = useState<boolean>(true);
+  const [attemptedSubmit, setAttemptedSubmit] = useState<boolean>(false);
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -367,7 +84,38 @@ export default function MeetingForm({
     }
   });
 
-  // Update form values when props change
+  // Initialize internal quantity from form values
+  useEffect(() => {
+    if (formValues?.quantity) {
+      setInternalQuantity(formValues.quantity.toString());
+      validateQuantity(formValues.quantity);
+    }
+  }, [formValues?.quantity]);
+
+  // Validate quantity and update form validity
+  const validateQuantity = (value: number | string): boolean => {
+    const numValue = typeof value === 'string' ? parseInt(value, 10) : value;
+    
+    if (isNaN(numValue)) {
+      setQuantityError("Please enter a valid number");
+      setIsFormValid(false);
+      return false;
+    } else if (numValue > 200) {
+      setQuantityError("Cannot generate more than 200 bots");
+      setIsFormValid(false);
+      return false;
+    } else if (numValue < 1) {
+      setQuantityError("Quantity must be at least 1");
+      setIsFormValid(false);
+      return false;
+    } else {
+      setQuantityError(null);
+      setIsFormValid(true);
+      return true;
+    }
+  };
+
+  // Update form values when props change - but never trigger bot generation automatically
   useEffect(() => {
     if (formValues) {
       Object.entries(formValues).forEach(([key, value]) => {
@@ -378,22 +126,62 @@ export default function MeetingForm({
     }
   }, [formValues, form]);
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
+  // Handle form submission - this is the ONLY place where bots should be generated
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setAttemptedSubmit(true);
+    
+    const values = form.getValues();
+    
+    // Verify the quantity is valid
+    if (!validateQuantity(values.quantity)) {
+      toast({
+        title: "Error",
+        description: "Cannot generate more than 200 bots. Please reduce the quantity.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Validate other form fields
+    if (!values.meetingId || !values.password || !values.countryCode) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Only generate bots if all validations pass and the button is explicitly clicked
     onBotsGenerated(values.quantity, values.countryCode);
-  }
+  };
 
-  // Function to handle country code changes
+  // Function to handle country code changes - only updates form state, never generates bots
   const handleCountryChange = (code: string) => {
     form.setValue("countryCode", code);
     if (onFormChange) {
+      // Pass a flag to indicate this is just a form change, not a request to generate bots
       onFormChange({ countryCode: code });
     }
   };
 
-  // Function to handle quantity changes
+  // Function to handle quantity changes - only updates form state, never generates bots
   const handleQuantityChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const quantity = Number(event.target.value);
+    // Remove leading zeros
+    const rawValue = event.target.value.replace(/^0+/, '') || '';
+    setInternalQuantity(rawValue);
+    
+    // Convert to number for the form
+    const quantity = rawValue === '' ? 0 : parseInt(rawValue, 10);
+    
+    // Validate the quantity
+    validateQuantity(quantity);
+    
+    // Update form value
     form.setValue("quantity", quantity);
+    
+    // Only update parent component's state but DON'T generate bots
     if (onFormChange) {
       onFormChange({ quantity });
     }
@@ -406,7 +194,7 @@ export default function MeetingForm({
       </CardHeader>
       <CardContent>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -424,6 +212,7 @@ export default function MeetingForm({
                             onFormChange({ meetingId: e.target.value });
                           }
                         }}
+                        className={attemptedSubmit && !field.value ? "border-red-500" : ""}
                       />
                     </FormControl>
                     <FormMessage />
@@ -448,6 +237,7 @@ export default function MeetingForm({
                             onFormChange({ password: e.target.value });
                           }
                         }}
+                        className={attemptedSubmit && !field.value ? "border-red-500" : ""}
                       />
                     </FormControl>
                     <FormMessage />
@@ -460,7 +250,7 @@ export default function MeetingForm({
               <FormField
                 control={form.control}
                 name="quantity"
-                render={({ field }) => (
+                render={({ field: { onChange, onBlur, name, ref } }) => (
                   <FormItem>
                     <FormLabel>
                       <div className="flex items-center gap-2">
@@ -470,16 +260,31 @@ export default function MeetingForm({
                     </FormLabel>
                     <FormControl>
                       <Input
-                        type="number"
-                        min="1"
-                        max="200"
-                        {...field}
-                        onChange={(e) => {
-                          field.onChange(Number(e.target.value));
-                          handleQuantityChange(e);
+                        name={name}
+                        ref={ref}
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={internalQuantity}
+                        onChange={handleQuantityChange}
+                        onBlur={(e) => {
+                          // Handle empty case
+                          if (e.target.value === '') {
+                            setInternalQuantity("1");
+                            form.setValue("quantity", 1);
+                            validateQuantity(1);
+                            if (onFormChange) {
+                              onFormChange({ quantity: 1 });
+                            }
+                          }
+                          onBlur();
                         }}
+                        className={quantityError ? "border-red-500" : ""}
                       />
                     </FormControl>
+                    {quantityError && (
+                      <p className="text-sm font-medium text-red-500">{quantityError}</p>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}
@@ -503,9 +308,11 @@ export default function MeetingForm({
                         max="120"
                         {...field}
                         onChange={(e) => {
-                          field.onChange(Number(e.target.value));
+                          // Remove leading zeros
+                          const value = parseInt(e.target.value.replace(/^0+/, ''), 10) || 0;
+                          field.onChange(value);
                           if (onFormChange) {
-                            onFormChange({ duration: Number(e.target.value) });
+                            onFormChange({ duration: value });
                           }
                         }}
                       />
@@ -535,7 +342,7 @@ export default function MeetingForm({
                       disabled={isLoading}
                     >
                       <FormControl>
-                        <SelectTrigger>
+                        <SelectTrigger className={attemptedSubmit && !field.value ? "border-red-500" : ""}>
                           <SelectValue placeholder="Select a country" />
                         </SelectTrigger>
                       </FormControl>
@@ -565,13 +372,16 @@ export default function MeetingForm({
               <Button
                 type="submit"
                 className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
-                disabled={isLoading}
+                disabled={isLoading || !isFormValid}
               >
                 {isLoading ? "Loading..." : "Generate Bots"}
               </Button>
               <Button
                 type="button"
-                onClick={() => onJoinMeeting(form.getValues())}
+                onClick={() => {
+                  const values = form.getValues();
+                  onJoinMeeting(values);
+                }}
                 disabled={!hasGeneratedBots || isJoining || !form.getValues().meetingId}
                 className="bg-green-600 hover:bg-green-700 text-white"
               >

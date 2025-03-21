@@ -1,5 +1,5 @@
 // lib/users.ts
-import { collection, addDoc, updateDoc, deleteDoc, getDocs, query, where, serverTimestamp, doc } from "firebase/firestore";
+import { collection, addDoc, updateDoc, deleteDoc, getDocs, query, where, serverTimestamp, doc, getDoc } from "firebase/firestore";
 import { firestore } from "@/lib/firebase";
 import bcrypt from 'bcryptjs';
 
@@ -77,6 +77,26 @@ export const getUserByUsername = async (username: string) => {
     return { id: userDoc.id, ...userDoc.data() } as UserData & { id: string };
   }
   return null;
+};
+
+// Added function to get user by ID
+export const getUserById = async (userId: string) => {
+  try {
+    const userRef = doc(usersCollection, userId);
+    const userSnap = await getDoc(userRef);
+    
+    if (userSnap.exists() && !userSnap.data().isDeleted) {
+      return { 
+        id: userSnap.id,
+        ...userSnap.data() 
+      } as UserData & { id: string };
+    }
+    
+    return null;
+  } catch (error) {
+    console.error("Error fetching user by ID:", error);
+    throw error;
+  }
 };
 
 // Optional: Get all users (useful for the UserManagement component)
