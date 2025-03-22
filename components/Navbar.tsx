@@ -82,6 +82,7 @@ export default function Navbar() {
             setIsLoadingUser(true);
             const freshUserData:any = await getUserName(sessionId);
             // Update cache and state if user data changed
+            console.log(getUserName)
             if (freshUserData && JSON.stringify(freshUserData) !== JSON.stringify(userData)) {
               localStorage.setItem("userData", JSON.stringify(freshUserData));
               setUser(freshUserData);
@@ -109,7 +110,7 @@ export default function Navbar() {
     
     setIsLoadingUser(true);
     try {
-      const userData = await getUserById(sessionId);
+      const userData:any = await getUserName(sessionId);
       if (userData) {
         // Cache the user data
         localStorage.setItem("userData", JSON.stringify(userData));
@@ -149,7 +150,7 @@ export default function Navbar() {
 
   return (
     <nav className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm transition-colors duration-300">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-1xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           {/* Logo and title */}
           <div className="flex items-center">
