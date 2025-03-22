@@ -42,7 +42,7 @@ function getMonthlyMeetingCounts() {
   });
   
   // Count meetings by month
-  previousSchedules.forEach(schedule => {
+  previousSchedules.forEach((schedule:any) => {
     // Extract month from date (format: "Mar 15, 2025")
     const dateParts = schedule.date.split(", ");
     const year = dateParts[1];
@@ -68,7 +68,7 @@ function getDistributionData() {
   // Count schedules by status and other metrics
   const counts = {
     Customers: previousSchedules.length,
-    Users: previousSchedules.reduce((sum, s) => sum + s.bots, 0),
+    Users: previousSchedules.reduce((sum: any, s: { bots: any; }) => sum + s.bots, 0),
     Roles: Math.round(previousSchedules.length * 0.3), // Simulated data
     Groups: Math.round(previousSchedules.length * 0.2), // Simulated data
     Features: Math.round(previousSchedules.length * 0.1), // Simulated data
@@ -93,7 +93,7 @@ export function getMeetingsByStatus() {
     'Active': 0
   };
   
-  previousSchedules.forEach(schedule => {
+  previousSchedules.forEach((schedule: { status: string | number; }) => {
     statusCounts[schedule.status] = (statusCounts[schedule.status] || 0) + 1;
   });
   
