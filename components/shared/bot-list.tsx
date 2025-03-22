@@ -28,10 +28,10 @@ interface Bot {
 
 interface BotListProps {
   bots: Bot[];
-  loading:boolean
+  loading: boolean
 }
 
-export default function BotList({ bots ,loading}: BotListProps) {
+export default function BotList({ bots, loading }: BotListProps) {
   const [enhancedBots, setEnhancedBots] = useState<Bot[]>([]);
   const [editingBotId, setEditingBotId] = useState<number | null>(null);
   const [editedName, setEditedName] = useState<string>("");
@@ -83,7 +83,7 @@ export default function BotList({ bots ,loading}: BotListProps) {
       setNameError("This name is already in use");
       return;
     }
-    const updatedBots = enhancedBots.map(bot => 
+    const updatedBots = enhancedBots.map(bot =>
       bot.id === editingBotId ? { ...bot, name: trimmedName } : bot
     );
     setEnhancedBots(updatedBots);
@@ -152,7 +152,7 @@ export default function BotList({ bots ,loading}: BotListProps) {
                               onChange={(e) => setEditedName(e.target.value)}
                               className="w-full max-w-[200px] p-1 border-gray-200 dark:border-gray-700 focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100"
                               autoFocus
-                            />  
+                            />
                             {nameError && (
                               <p className="text-xs text-red-600 dark:text-red-400">{nameError}</p>
                             )}
@@ -166,8 +166,8 @@ export default function BotList({ bots ,loading}: BotListProps) {
                           <div className="flex items-center gap-2">
                             {bot.flag && (
                               <div className="relative w-5 h-3.5">
-                                <Image 
-                                  src={bot.flag} 
+                                <Image
+                                  src={bot.flag}
                                   alt={bot.country || ''}
                                   width={20}
                                   height={14}
@@ -187,28 +187,28 @@ export default function BotList({ bots ,loading}: BotListProps) {
                       <TableCell className="py-1">
                         {editingBotId === bot.id ? (
                           <div className="flex space-x-1">
-                            <Button 
-                              onClick={saveEditedName} 
-                              size="sm" 
-                              variant="outline" 
+                            <Button
+                              onClick={saveEditedName}
+                              size="sm"
+                              variant="outline"
                               className="h-7 w-7 p-0 border-gray-200 dark:border-gray-700 hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30"
                             >
                               <Check className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                             </Button>
-                            <Button 
-                              onClick={cancelEditing} 
-                              size="sm" 
-                              variant="outline" 
+                            <Button
+                              onClick={cancelEditing}
+                              size="sm"
+                              variant="outline"
                               className="h-7 w-7 p-0 border-gray-200 dark:border-gray-700 hover:border-red-500 hover:bg-red-50 dark:hover:bg-red-900/30"
                             >
                               <X className="h-4 w-4 text-red-600 dark:text-red-400" />
                             </Button>
                           </div>
                         ) : (
-                          <Button 
-                            onClick={() => startEditing(bot)} 
-                            size="sm" 
-                            variant="outline" 
+                          <Button
+                            onClick={() => startEditing(bot)}
+                            size="sm"
+                            variant="outline"
                             className="h-7 w-7 p-0 border-gray-200 dark:border-gray-700 hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30"
                           >
                             <Pencil className="h-4 w-4 text-gray-500 dark:text-gray-400" />
@@ -225,7 +225,9 @@ export default function BotList({ bots ,loading}: BotListProps) {
           <div className="flex flex-col items-center justify-center h-full text-center py-8 text-gray-500 dark:text-gray-400">
             <UserCircle2 className="h-12 w-12 text-blue-200 dark:text-blue-800 mb-3" />
             <p className="text-lg font-medium text-gray-600 dark:text-gray-300">No bots generated yet</p>
-            <p className="text-sm mt-1.5 text-gray-500 dark:text-gray-400">Click the "Generate Bots" button to create bots</p>
+            <p className="text-sm mt-1.5 text-gray-500 dark:text-gray-400">
+              Click the &quot;Generate Bots&quot; button to create bots
+            </p>
           </div>
         )}
       </CardContent>
