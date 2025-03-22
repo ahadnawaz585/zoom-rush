@@ -126,25 +126,30 @@ export default function UserManagement() {
   return (
     <TooltipProvider>
       <div className="max-w-4xl mx-auto p-4">
-        <Card className="mb-4">
-          <CardContent className="pt-6">
+        <h1 className="text-2xl font-bold mb-6 text-gray-600 ">User Management</h1>
+        
+        <Card className="mb-6 shadow-sm border-0 overflow-hidden">
+          <div className="bg-blue-600 px-4 py-3">
+            <h2 className="text-white font-medium">Add New User</h2>
+          </div>
+          <CardContent className="pt-4 pb-4 bg-white">
             <form onSubmit={handleCreateUser} className="flex gap-2">
               <Input
                 type="text"
                 value={newUsername}
                 onChange={(e) => setNewUsername(e.target.value)}
                 placeholder="Username"
-                className="flex-1"
+                className="flex-1 border-slate-300 focus:border-blue-500 focus:ring-blue-500"
               />
               <Input
                 type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder="Password"
-                className="flex-1"
+                className="flex-1 border-slate-300 focus:border-blue-500 focus:ring-blue-500"
               />
               <Select value={newRole} onValueChange={(value: UserRole) => setNewRole(value)}>
-                <SelectTrigger className="w-[120px]">
+                <SelectTrigger className="w-[120px] border-slate-300 focus:ring-blue-500">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -152,18 +157,25 @@ export default function UserManagement() {
                   <SelectItem value="admin">Admin</SelectItem>
                 </SelectContent>
               </Select>
-              <Button type="submit" disabled={isLoading}>
+              <Button 
+                type="submit" 
+                disabled={isLoading}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
                 <UserPlus className="h-4 w-4 mr-2" />
-                Add
+                Add User
               </Button>
             </form>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="pt-6">
+        <Card className="shadow-sm border-0 overflow-hidden">
+          <div className="bg-blue-600 px-4 py-3">
+            <h2 className="text-white font-medium">Manage Users</h2>
+          </div>
+          <CardContent className="pt-4 pb-4 bg-white">
             {users.length === 0 ? (
-              <Alert>
+              <Alert className="bg-blue-50 border-blue-100 text-blue-800">
                 <AlertDescription>
                   No users found. Create a new user to get started.
                 </AlertDescription>
@@ -173,15 +185,27 @@ export default function UserManagement() {
                 {users.map(user => (
                   <div
                     key={user.id}
-                    className="flex items-center justify-between p-3 rounded-md border bg-card hover:bg-accent/50 transition-colors"
+                    className="flex items-center justify-between p-3 rounded-md border border-slate-200 bg-white hover:bg-blue-50 transition-colors"
                   >
                     <div className="flex items-center gap-2">
                       {user.role === 'admin' ? (
-                        <Crown className="h-4 w-4 text-amber-500" />
+                        <div className="bg-blue-100 p-2 rounded-full">
+                          <Crown className="h-4 w-4 text-blue-600" />
+                        </div>
                       ) : (
-                        <User className="h-4 w-4 text-blue-500" />
+                        <div className="bg-slate-100 p-2 rounded-full">
+                          <User className="h-4 w-4 text-slate-600" />
+                        </div>
                       )}
-                      <span className="font-medium">{user.username}</span>
+                      <span className="font-medium text-slate-800">{user.username}</span>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                        {user.role}
+                      </span>
+                      {!user.isAllowed && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-600">
+                          Disabled
+                        </span>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-1">
@@ -190,7 +214,7 @@ export default function UserManagement() {
                           <Input
                             type="password"
                             placeholder="New password"
-                            className="w-32 h-8"
+                            className="w-32 h-8 border-slate-300 focus:border-blue-500 focus:ring-blue-500"
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') {
                                 handleChangePassword(user.id, e.currentTarget.value);
@@ -201,6 +225,7 @@ export default function UserManagement() {
                             size="icon"
                             variant="ghost"
                             onClick={() => setShowPasswordChange(null)}
+                            className="text-slate-500 hover:text-slate-700 hover:bg-slate-100"
                           >
                             <XCircle className="h-4 w-4" />
                           </Button>
@@ -212,11 +237,14 @@ export default function UserManagement() {
                               size="icon"
                               variant="ghost"
                               onClick={() => setShowPasswordChange(user.id)}
+                              className="text-slate-500 hover:text-slate-700 hover:bg-slate-100"
                             >
                               <Lock className="h-4 w-4" />
                             </Button>
                           </TooltipTrigger>
-                          <TooltipContent>Change password</TooltipContent>
+                          <TooltipContent className="bg-slate-800 text-white">
+                            Change password
+                          </TooltipContent>
                         </Tooltip>
                       )}
 
@@ -229,11 +257,14 @@ export default function UserManagement() {
                               user.id,
                               user.role === 'admin' ? 'user' : 'admin'
                             )}
+                            className="text-slate-500 hover:text-slate-700 hover:bg-slate-100"
                           >
                             <UserCog className="h-4 w-4" />
                           </Button>
                         </TooltipTrigger>
-                        <TooltipContent>Toggle role</TooltipContent>
+                        <TooltipContent className="bg-slate-800 text-white">
+                          {user.role === 'admin' ? 'Change to User' : 'Change to Admin'}
+                        </TooltipContent>
                       </Tooltip>
 
                       <Tooltip>
@@ -242,15 +273,18 @@ export default function UserManagement() {
                             size="icon"
                             variant="ghost"
                             onClick={() => handleUpdatePermission(user.id, user.isAllowed)}
+                            className={user.isAllowed 
+                              ? "text-green-500 hover:text-green-700 hover:bg-slate-100" 
+                              : "text-red-500 hover:text-red-700 hover:bg-slate-100"}
                           >
                             {user.isAllowed ? (
-                              <CheckCircle className="h-4 w-4 text-green-500" />
+                              <CheckCircle className="h-4 w-4" />
                             ) : (
-                              <XCircle className="h-4 w-4 text-red-500" />
+                              <XCircle className="h-4 w-4" />
                             )}
                           </Button>
                         </TooltipTrigger>
-                        <TooltipContent>
+                        <TooltipContent className="bg-slate-800 text-white">
                           {user.isAllowed ? 'Disable user' : 'Enable user'}
                         </TooltipContent>
                       </Tooltip>
@@ -261,11 +295,14 @@ export default function UserManagement() {
                             size="icon"
                             variant="ghost"
                             onClick={() => handleDeleteUser(user.id)}
+                            className="text-red-500 hover:text-red-700 hover:bg-slate-100"
                           >
-                            <Trash2 className="h-4 w-4 text-red-500" />
+                            <Trash2 className="h-4 w-4" />
                           </Button>
                         </TooltipTrigger>
-                        <TooltipContent>Delete user</TooltipContent>
+                        <TooltipContent className="bg-slate-800 text-white">
+                          Delete user
+                        </TooltipContent>
                       </Tooltip>
                     </div>
                   </div>

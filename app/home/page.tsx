@@ -1,3 +1,4 @@
+// Modified page.tsx with graph integration
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
@@ -6,11 +7,15 @@ import { toast } from "sonner";
 import MeetingForm from "@/components/shared/meeting-form";
 import BotList from "@/components/shared/bot-list";
 import PreviousSchedule from "@/components/shared/previous-schedule";
-import Navbar from "@/components/Navbar"; // Import the new Navbar component
+ // Import the new graphs component
+import Navbar from "@/components/Navbar";
 import { generateBotName } from "@/lib/botUtils";
 import { useRouter } from "next/navigation";
 import { Country } from "../services/countryApi";
 import Cookies from "js-cookie";
+import { previousSchedules } from '@/app/data/constants'; // Import the schedules data
+import DashboardGraphs from "@/components/dashboard/DashboardGraphs";
+
 // Defer Zoom SDK imports
 let ZoomMtg: any = null;
 
@@ -46,6 +51,14 @@ export default function Home() {
   });
   const router = useRouter();
   
+  // Check for dark mode on component mount
+  useEffect(() => {
+    const isDarkMode = document.documentElement.classList.contains('dark');
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+    }
+  }, []);
+  
   // Fetch countries on component mount
   useEffect(() => {
     async function loadCountries() {
@@ -66,9 +79,6 @@ export default function Home() {
         
         setCountries(countriesData);
         setCountryMap(countryMapData);
-        
-        // Remove automatic bot generation on load
-        // We'll only generate bots when the button is clicked
       } catch (error) {
         console.error("Failed to load countries:", error);
         toast.error("Failed to load countries data", {
@@ -116,7 +126,6 @@ export default function Home() {
   const handleFormChange = useCallback((newValues: Partial<FormValues>) => {
     setFormValues(prev => {
       const updated = { ...prev, ...newValues };
-      // No longer automatically generate bots when form values change
       return updated;
     });
   }, []);
@@ -195,9 +204,6 @@ export default function Home() {
         ZoomMtg.preLoadWasm();
         ZoomMtg.prepareWebSDK();
         
-        // Assign to window for global access
-        // window.ZoomMtg = ZoomMtg;
-        
         return ZoomMtg;
       } catch (error) {
         console.error("Failed to load Zoom SDK:", error);
@@ -234,8 +240,8 @@ export default function Home() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
-      {/* Navbar at the top */}
+    <div className="h-screen flex flex-col bg-[#F5F8FC] dark:bg-gradient-to-b dark:from-gray-900 dark:to-gray-800 transition-colors duration-300">
+      
       <Navbar />
       
       {/* Main content */}
@@ -254,6 +260,11 @@ export default function Home() {
             />
 
             <BotList bots={generatedBots} />
+          </div>
+
+          {/* Add graphs before the previous schedule */}
+          <div className="mt-6">
+          <DashboardGraphs schedules={previousSchedules} />
           </div>
 
           <div className="mt-6">

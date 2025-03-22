@@ -1,10 +1,9 @@
-// components/shared/meeting-form.tsx
 "use client";
 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Users, Globe, Clock, Play } from "lucide-react";
+import { Users, Globe, Clock, Play, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,7 +25,6 @@ import {
 import { Country } from "@/app/services/countryApi";
 import { useEffect, useState } from "react";
 import { toast } from "@/hooks/use-toast";
-
 
 const formSchema = z.object({
   meetingId: z
@@ -71,7 +69,8 @@ export default function MeetingForm({
   const [quantityError, setQuantityError] = useState<string | null>(null);
   const [internalQuantity, setInternalQuantity] = useState<string>("5");
   const [isFormValid, setIsFormValid] = useState<boolean>(true);
-  const [attemptedSubmit, setAttemptedSubmit] = useState<boolean>(false);
+  const [isGenerating, setIsGenerating] = useState<boolean>(false);
+  const [countryChanged, setCountryChanged] = useState<boolean>(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -81,10 +80,10 @@ export default function MeetingForm({
       quantity: formValues?.quantity || 5,
       duration: formValues?.duration || 30,
       countryCode: formValues?.countryCode || "US",
-    }
+    },
+    mode: "onChange"
   });
 
-  // Initialize internal quantity from form values
   useEffect(() => {
     if (formValues?.quantity) {
       setInternalQuantity(formValues.quantity.toString());
@@ -92,7 +91,6 @@ export default function MeetingForm({
     }
   }, [formValues?.quantity]);
 
-  // Validate quantity and update form validity
   const validateQuantity = (value: number | string): boolean => {
     const numValue = typeof value === 'string' ? parseInt(value, 10) : value;
     
@@ -115,7 +113,6 @@ export default function MeetingForm({
     }
   };
 
-  // Update form values when props change - but never trigger bot generation automatically
   useEffect(() => {
     if (formValues) {
       Object.entries(formValues).forEach(([key, value]) => {
@@ -126,267 +123,292 @@ export default function MeetingForm({
     }
   }, [formValues, form]);
 
-  // Handle form submission - this is the ONLY place where bots should be generated
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setAttemptedSubmit(true);
     
-    const values = form.getValues();
-    
-    // Verify the quantity is valid
-    if (!validateQuantity(values.quantity)) {
-      toast({
-        title: "Error",
-        description: "Cannot generate more than 200 bots. Please reduce the quantity.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    // Validate other form fields
-    if (!values.meetingId || !values.password || !values.countryCode) {
-      toast({
-        title: "Error",
-        description: "Please fill in all required fields",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    // Only generate bots if all validations pass and the button is explicitly clicked
-    onBotsGenerated(values.quantity, values.countryCode);
+    form.trigger().then(isValid => {
+      if (!isValid) {
+        toast({
+          title: "Validation Error",
+          description: "Please fix the errors in the form",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      const values = form.getValues();
+      
+      if (!validateQuantity(values.quantity)) {
+        toast({
+          title: "Error",
+          description: "Cannot generate more than 200 bots. Please reduce the quantity.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      setIsGenerating(true);
+      
+      setTimeout(() => {
+        onBotsGenerated(values.quantity, values.countryCode);
+        setIsGenerating(false);
+        setCountryChanged(false);
+      }, countryChanged ? 1000 : 300);
+    });
   };
 
-  // Function to handle country code changes - only updates form state, never generates bots
   const handleCountryChange = (code: string) => {
     form.setValue("countryCode", code);
+    setCountryChanged(true);
     if (onFormChange) {
-      // Pass a flag to indicate this is just a form change, not a request to generate bots
       onFormChange({ countryCode: code });
     }
   };
 
-  // Function to handle quantity changes - only updates form state, never generates bots
   const handleQuantityChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    // Remove leading zeros
     const rawValue = event.target.value.replace(/^0+/, '') || '';
     setInternalQuantity(rawValue);
     
-    // Convert to number for the form
     const quantity = rawValue === '' ? 0 : parseInt(rawValue, 10);
     
-    // Validate the quantity
     validateQuantity(quantity);
-    
-    // Update form value
     form.setValue("quantity", quantity);
     
-    // Only update parent component's state but DON'T generate bots
     if (onFormChange) {
       onFormChange({ quantity });
     }
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Meeting Configuration</CardTitle>
+    <Card className="bg-white dark:bg-gray-900 shadow-md flex flex-col h-full border dark:border-gray-800">
+      <CardHeader className="bg-[#F8F8F8] dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex-shrink-0">
+        <CardTitle className="text-[#232333] dark:text-gray-100 text-lg font-medium">Meeting Configuration</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-6 flex-grow overflow-y-auto">
         <Form {...form}>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="meetingId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Meeting ID</FormLabel>
-                    <FormControl>
-                      <Input 
-                        placeholder="Enter Zoom meeting ID" 
-                        {...field} 
-                        onChange={(e) => {
-                          field.onChange(e);
-                          if (onFormChange) {
-                            onFormChange({ meetingId: e.target.value });
-                          }
-                        }}
-                        className={attemptedSubmit && !field.value ? "border-red-500" : ""}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Meeting Password</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="password"
-                        placeholder="Enter meeting password"
-                        {...field}
-                        onChange={(e) => {
-                          field.onChange(e);
-                          if (onFormChange) {
-                            onFormChange({ password: e.target.value });
-                          }
-                        }}
-                        className={attemptedSubmit && !field.value ? "border-red-500" : ""}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <FormField
-                control={form.control}
-                name="quantity"
-                render={({ field: { onChange, onBlur, name, ref } }) => (
-                  <FormItem>
-                    <FormLabel>
-                      <div className="flex items-center gap-2">
-                        <Users className="h-4 w-4" />
-                        <span>Number of Bots</span>
-                      </div>
-                    </FormLabel>
-                    <FormControl>
-                      <Input
-                        name={name}
-                        ref={ref}
-                        type="text"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        value={internalQuantity}
-                        onChange={handleQuantityChange}
-                        onBlur={(e) => {
-                          // Handle empty case
-                          if (e.target.value === '') {
-                            setInternalQuantity("1");
-                            form.setValue("quantity", 1);
-                            validateQuantity(1);
-                            if (onFormChange) {
-                              onFormChange({ quantity: 1 });
-                            }
-                          }
-                          onBlur();
-                        }}
-                        className={quantityError ? "border-red-500" : ""}
-                      />
-                    </FormControl>
-                    {quantityError && (
-                      <p className="text-sm font-medium text-red-500">{quantityError}</p>
-                    )}
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="duration"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>
-                      <div className="flex items-center gap-2">
-                        <Clock className="h-4 w-4" />
-                        <span>Duration (minutes)</span>
-                      </div>
-                    </FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        min="1"
-                        max="120"
-                        {...field}
-                        onChange={(e) => {
-                          // Remove leading zeros
-                          const value = parseInt(e.target.value.replace(/^0+/, ''), 10) || 0;
-                          field.onChange(value);
-                          if (onFormChange) {
-                            onFormChange({ duration: value });
-                          }
-                        }}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="countryCode"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>
-                      <div className="flex items-center gap-2">
-                        <Globe className="h-4 w-4" />
-                        <span>Bot Country</span>
-                      </div>
-                    </FormLabel>
-                    <Select
-                      onValueChange={(value) => {
-                        field.onChange(value);
-                        handleCountryChange(value);
-                      }}
-                      value={field.value}
-                      disabled={isLoading}
-                    >
+          <form onSubmit={handleSubmit} className="space-y-6 h-full flex flex-col">
+            <div className="space-y-6 flex-grow">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FormField
+                  control={form.control}
+                  name="meetingId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-[#747487] dark:text-gray-300 font-medium text-sm">Meeting ID</FormLabel>
                       <FormControl>
-                        <SelectTrigger className={attemptedSubmit && !field.value ? "border-red-500" : ""}>
-                          <SelectValue placeholder="Select a country" />
-                        </SelectTrigger>
+                        <Input 
+                          placeholder="Enter Zoom meeting ID" 
+                          className="border-gray-300 dark:border-gray-700 focus:border-[#0E72ED] focus:ring-[#0E72ED] h-10 bg-white dark:bg-gray-800 dark:text-gray-100 focus:bg-white dark:focus:bg-gray-800 active:bg-white dark:active:bg-gray-800"
+                          {...field} 
+                          onChange={(e) => {
+                            field.onChange(e);
+                            if (onFormChange) {
+                              onFormChange({ meetingId: e.target.value });
+                            }
+                          }}
+                        />
                       </FormControl>
-                      <SelectContent className="max-h-[300px]">
-                        {countries.map((country) => (
-                          <SelectItem key={country.code} value={country.code}>
-                            {country.name}
-                          </SelectItem>
-                        ))}
-                        {countries.length === 0 && isLoading && (
-                          <SelectItem value="loading" disabled>
-                            Loading countries...
-                          </SelectItem>
-                        )}
-                        {countries.length === 0 && !isLoading && (
-                          <SelectItem value="US">United States</SelectItem>
-                        )}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                      <FormMessage className="text-red-500 dark:text-red-400 text-xs" />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-[#747487] dark:text-gray-300 font-medium text-sm">Meeting Password</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="password"
+                          placeholder="Enter meeting password"
+                          className="border-gray-300 dark:border-gray-700 focus:border-[#0E72ED] focus:ring-[#0E72ED] h-10 dark:bg-gray-800 dark:text-gray-100"
+                          {...field}
+                          onChange={(e) => {
+                            field.onChange(e);
+                            if (onFormChange) {
+                              onFormChange({ password: e.target.value });
+                            }
+                          }}
+                        />
+                      </FormControl>
+                      <FormMessage className="text-red-500 dark:text-red-400 text-xs" />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <FormField
+                  control={form.control}
+                  name="quantity"
+                  render={({ field: { onChange, onBlur, name, ref } }) => (
+                    <FormItem>
+                      <FormLabel className="text-[#747487] dark:text-gray-300 font-medium text-sm">
+                        <div className="flex items-center gap-2">
+                          <Users className="h-4 w-4 text-[#0E72ED] dark:text-blue-400" />
+                          <span>Number of Bots</span>
+                        </div>
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          name={name}
+                          ref={ref}
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          value={internalQuantity}
+                          onChange={handleQuantityChange}
+                          className={`border-gray-300 dark:border-gray-700 focus:border-[#0E72ED] focus:ring-[#0E72ED] h-10 dark:bg-gray-800 dark:text-gray-100 ${quantityError ? "border-red-500 dark:border-red-400" : ""}`}
+                          onBlur={(e) => {
+                            if (e.target.value === '') {
+                              setInternalQuantity("1");
+                              form.setValue("quantity", 1);
+                              validateQuantity(1);
+                              if (onFormChange) {
+                                onFormChange({ quantity: 1 });
+                              }
+                            }
+                            onBlur();
+                          }}
+                        />
+                      </FormControl>
+                      {quantityError && (
+                        <p className="text-xs font-medium text-red-500 dark:text-red-400">{quantityError}</p>
+                      )}
+                      <FormMessage className="text-red-500 dark:text-red-400 text-xs" />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="duration"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-[#747487] dark:text-gray-300 font-medium text-sm">
+                        <div className="flex items-center gap-2">
+                          <Clock className="h-4 w-4 text-[#0E72ED] dark:text-blue-400" />
+                          <span>Duration (minutes)</span>
+                        </div>
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min="1"
+                          max="120"
+                          className="border-gray-300 dark:border-gray-700 focus:border-[#0E72ED] focus:ring-[#0E72ED] h-10 dark:bg-gray-800 dark:text-gray-100"
+                          {...field}
+                          onChange={(e) => {
+                            const value = parseInt(e.target.value.replace(/^0+/, ''), 10) || 0;
+                            field.onChange(value);
+                            if (onFormChange) {
+                              onFormChange({ duration: value });
+                            }
+                          }}
+                        />
+                      </FormControl>
+                      <FormMessage className="text-red-500 dark:text-red-400 text-xs" />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="countryCode"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-[#747487] dark:text-gray-300 font-medium text-sm">
+                        <div className="flex items-center gap-2">
+                          <Globe className="h-4 w-4 text-[#0E72ED] dark:text-blue-400" />
+                          <span>Bot Country</span>
+                        </div>
+                      </FormLabel>
+                      <Select
+                        onValueChange={(value) => {
+                          field.onChange(value);
+                          handleCountryChange(value);
+                        }}
+                        value={field.value}
+                        disabled={isLoading || isGenerating}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="border-gray-300 dark:border-gray-700 focus:border-[#0E72ED] focus:ring-[#0E72ED] h-10 dark:bg-gray-800 dark:text-gray-100">
+                            <SelectValue placeholder="Select a country" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent className="max-h-60 dark:bg-gray-800 dark:border-gray-700">
+                          {countries.map((country) => (
+                            <SelectItem key={country.code} value={country.code} className="dark:text-gray-100 dark:focus:bg-gray-700 dark:data-[state=checked]:bg-blue-900">
+                              {country.name}
+                            </SelectItem>
+                          ))}
+                          {countries.length === 0 && isLoading && (
+                            <SelectItem value="loading" disabled className="dark:text-gray-400">
+                              Loading countries...
+                            </SelectItem>
+                          )}
+                          {countries.length === 0 && !isLoading && (
+                            <SelectItem value="US" className="dark:text-gray-100">United States</SelectItem>
+                          )}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage className="text-red-500 dark:text-red-400 text-xs" />
+                    </FormItem>
+                  )}
+                />
+              </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-2">
+            <div className="flex flex-col sm:flex-row gap-3 mt-auto pt-4 border-t border-gray-100 dark:border-gray-800">
               <Button
                 type="submit"
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
-                disabled={isLoading || !isFormValid}
+                className="flex-1 bg-[#0E72ED] hover:bg-[#0B5CCA] dark:bg-blue-700 dark:hover:bg-blue-800 text-white font-medium h-10 rounded-md"
+                disabled={isLoading || isGenerating || !isFormValid}
+                onClick={() => {
+                  form.trigger();
+                }}
               >
-                {isLoading ? "Loading..." : "Generate Bots"}
+                {isGenerating || isLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    {countryChanged ? "Updating..." : "Generating..."}
+                  </>
+                ) : (
+                  "Generate Bots"
+                )}
               </Button>
               <Button
                 type="button"
                 onClick={() => {
-                  const values = form.getValues();
-                  onJoinMeeting(values);
+                  form.trigger().then(isValid => {
+                    if (isValid) {
+                      const values = form.getValues();
+                      onJoinMeeting(values);
+                    } else {
+                      toast({
+                        title: "Validation Error",
+                        description: "Please fix the errors in the form",
+                        variant: "destructive"
+                      });
+                    }
+                  });
                 }}
-                disabled={!hasGeneratedBots || isJoining || !form.getValues().meetingId}
-                className="bg-green-600 hover:bg-green-700 text-white"
+                disabled={!hasGeneratedBots || isJoining || !form.getValues().meetingId || isGenerating}
+                className="bg-[#27AE60] hover:bg-[#219653] dark:bg-green-700 dark:hover:bg-green-800 text-white font-medium h-10 rounded-md"
               >
-                <Play className="w-4 h-4 mr-2" />
-                {isJoining ? "Joining..." : "Join Meeting"}
+                {isJoining ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Joining...
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-4 h-4 mr-2" />
+                    Join Meeting
+                  </>
+                )}
               </Button>
             </div>
           </form>
