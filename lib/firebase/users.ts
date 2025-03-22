@@ -99,6 +99,23 @@ export const getUserById = async (userId: string) => {
   }
 };
 
+
+export const  getUserName = async(userId:string)=>{
+    try {
+      const userRef = doc(usersCollection, userId);
+      const userSnap = await getDoc(userRef);
+      
+      if (userSnap.exists() && !userSnap.data().isDeleted) {
+        return { username: userSnap.data().username };
+      }
+      
+      return null;
+    } catch (error) {
+      console.error("Error fetching user by ID:", error);
+      throw error;
+    }
+  };
+
 // Optional: Get all users (useful for the UserManagement component)
 export const getAllUsers = async () => {
   const q = query(usersCollection, where("isDeleted", "==", false));

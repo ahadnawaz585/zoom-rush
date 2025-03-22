@@ -6,7 +6,7 @@ import Cookies from "js-cookie";
 import { Video, User, Lock, Moon, Sun } from "lucide-react";
 import { getUserByUsername } from "@/lib/firebase/users";
 import bcrypt from 'bcryptjs';
-import { GlowContainer } from "@/components/ui/GlowContainer";
+// import { GlowContainer } from "@/components/ui/GlowContainer";
 
 const generateRandomSession = () => {
   return Math.random().toString(36).substring(2) + Date.now().toString(36);
@@ -129,7 +129,6 @@ export default function Login() {
   return (
     
     <div className={`min-h-screen flex items-center justify-center p-4 transition-colors duration-300 ${darkMode ? 'bg-gradient-to-b from-gray-900 to-gray-800' : 'bg-gradient-to-b from-blue-50 to-gray-50'}`}>
-      <GlowContainer size="small" className="your-other-classes">
       <div className={`w-full max-w-md rounded-xl shadow-lg p-8 border transition-colors duration-300 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-blue-100'}`}>
         {/* Theme toggle button */}
 
@@ -269,7 +268,6 @@ export default function Login() {
           <p className={`mt-1 ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>© {new Date().getFullYear()} Zoom Video Communications, Inc.</p>
         </div>
       </div>
-      </GlowContainer>
     </div>
   );
 }

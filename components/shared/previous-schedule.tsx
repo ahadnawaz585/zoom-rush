@@ -54,12 +54,12 @@ const PreviousSchedule = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {previousSchedules.map((schedule) => (
+                  {previousSchedules.map((schedule:any) => (
                     <TableRow key={schedule.id} className="dark:border-slate-700 dark:hover:bg-slate-800/50">
-                      <TableCell className="dark:text-slate-300">{schedule.meetingId}</TableCell>
-                      <TableCell className="dark:text-slate-300">{schedule.bots}</TableCell>
-                      <TableCell className="dark:text-slate-300">{schedule.duration} mins</TableCell>
-                      <TableCell className="dark:text-slate-300">{countries[schedule.country as keyof typeof countries]}</TableCell>
+                      <TableCell className="dark:text-slate-300 ">{schedule.meetingId}</TableCell>
+                      <TableCell className="dark:text-slate-300 ">{schedule.bots}</TableCell>
+                      <TableCell className="dark:text-slate-300 ">{schedule.duration} mins</TableCell>
+                      <TableCell className="dark:text-slate-300 ">{countries[schedule.country as keyof typeof countries]}</TableCell>
                       <TableCell>
                         <span
                           className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${

@@ -35,7 +35,7 @@ export const countries = {
 };
 
 
-  export const previousSchedules = [
+  export const previousSchedules:any = [
     {
       id: 1,
       meetingId: "123456789",
@@ -91,7 +91,7 @@ export const countries = {
       date: "2024-03-18",
     },
     {
-      id: 6,
+      id: 7,
       meetingId: "456789123",
       bots: 120,
       duration: 45,

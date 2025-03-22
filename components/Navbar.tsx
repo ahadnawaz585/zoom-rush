@@ -5,7 +5,7 @@ import { Video, User, LogOut, Menu, X, Moon, Sun } from "lucide-react";
 import Cookies from "js-cookie";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { getUserById, UserData } from "@/lib/firebase/users";
+import { getUserById, getUserName, UserData } from "@/lib/firebase/users";
 
 export default function Navbar() {
   const [user, setUser] = useState<(UserData & { id: string }) | null>(null);
@@ -80,8 +80,7 @@ export default function Navbar() {
         const verifyUser = async () => {
           try {
             setIsLoadingUser(true);
-            const freshUserData = await getUserById(sessionId);
-            
+            const freshUserData:any = await getUserName(sessionId);
             // Update cache and state if user data changed
             if (freshUserData && JSON.stringify(freshUserData) !== JSON.stringify(userData)) {
               localStorage.setItem("userData", JSON.stringify(freshUserData));

@@ -28,9 +28,10 @@ interface Bot {
 
 interface BotListProps {
   bots: Bot[];
+  loading:boolean
 }
 
-export default function BotList({ bots }: BotListProps) {
+export default function BotList({ bots ,loading}: BotListProps) {
   const [enhancedBots, setEnhancedBots] = useState<Bot[]>([]);
   const [editingBotId, setEditingBotId] = useState<number | null>(null);
   const [editedName, setEditedName] = useState<string>("");
@@ -120,7 +121,7 @@ export default function BotList({ bots }: BotListProps) {
   const hasBots = enhancedBots.length > 0;
 
   return (
-    <Card className="h-[600px] flex flex-col bg-white dark:bg-gray-900 shadow-sm border border-gray-100 dark:border-gray-800">
+    <Card className="h-[400px] flex flex-col bg-white dark:bg-gray-900 shadow-sm border border-gray-100 dark:border-gray-800">
       <CardHeader className="bg-[#F8F8F8] dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
         <CardTitle className="text-gray-800 dark:text-gray-100 text-lg font-semibold flex items-center">
           <UserCircle2 className="h-5 w-5 text-blue-600 dark:text-blue-400 mr-2" />
@@ -128,9 +129,9 @@ export default function BotList({ bots }: BotListProps) {
         </CardTitle>
       </CardHeader>
       <CardContent className="flex-1 p-0">
-        {hasBots ? (
+        {(hasBots && !loading) ? (
           <div className="h-full rounded-b-lg overflow-hidden">
-            <ScrollArea className="h-[520px]">
+            <ScrollArea className="h-[320px]">
               <Table>
                 <TableHeader>
                   <TableRow className="border-b border-gray-100 dark:border-gray-700">
@@ -143,15 +144,15 @@ export default function BotList({ bots }: BotListProps) {
                 <TableBody>
                   {enhancedBots.map((bot) => (
                     <TableRow key={bot.id} className="hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
-                      <TableCell className="text-gray-800 dark:text-gray-200 py-2.5">
+                      <TableCell className="text-gray-800 dark:text-gray-200 py-0.5">
                         {editingBotId === bot.id ? (
                           <div className="space-y-1">
-                            <Input
+                            <input
                               value={editedName}
                               onChange={(e) => setEditedName(e.target.value)}
-                              className="w-full max-w-[200px] border-gray-200 dark:border-gray-700 focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100"
+                              className="w-full max-w-[200px] p-1 border-gray-200 dark:border-gray-700 focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100"
                               autoFocus
-                            />
+                            />  
                             {nameError && (
                               <p className="text-xs text-red-600 dark:text-red-400">{nameError}</p>
                             )}
@@ -160,7 +161,7 @@ export default function BotList({ bots }: BotListProps) {
                           bot.name
                         )}
                       </TableCell>
-                      <TableCell className="text-gray-800 dark:text-gray-200 py-2.5">
+                      <TableCell className="text-gray-800 dark:text-gray-200 py-1">
                         {bot.countryCode && (
                           <div className="flex items-center gap-2">
                             {bot.flag && (
@@ -178,12 +179,12 @@ export default function BotList({ bots }: BotListProps) {
                           </div>
                         )}
                       </TableCell>
-                      <TableCell className="py-2.5">
+                      <TableCell className="py-1">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getStatusStyle(bot.status)}`}>
                           {bot.status}
                         </span>
                       </TableCell>
-                      <TableCell className="py-2.5">
+                      <TableCell className="py-1">
                         {editingBotId === bot.id ? (
                           <div className="flex space-x-1">
                             <Button 

@@ -246,7 +246,7 @@ export default function Home() {
       
       {/* Main content */}
       <div className="flex-grow overflow-auto p-4 sm:p-6 lg:p-8">
-        <div className="max-w-6xl mx-auto flex flex-col h-full">
+        <div className="max-w-1xl mx-auto flex flex-col h-full">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-grow">
             <MeetingForm
               onBotsGenerated={handleBotsGenerated}
@@ -259,7 +259,7 @@ export default function Home() {
               countries={countries}
             />
 
-            <BotList bots={generatedBots} />
+            <BotList bots={generatedBots} loading={isLoading} />
           </div>
 
           {/* Add graphs before the previous schedule */}
