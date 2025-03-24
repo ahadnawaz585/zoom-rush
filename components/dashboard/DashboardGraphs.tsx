@@ -125,12 +125,16 @@ const DashboardGraphs: React.FC<DashboardGraphsProps> = ({ schedules }) => {
   }, [schedules]);
   
   // Colors for the pie chart - enhanced with better contrast
-  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
+  // Explicitly add red for failed status
+  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#FF0000'];
   
+  // Total meetings count
+  const totalMeetings = schedules.length;
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       {/* Meeting Status Distribution */}
-      <Card className="dark:bg-slate-800 dark:border-slate-700">
+      <Card className="dark:bg-slate-800 dark:border-slate-700 relative">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 dark:text-white">
             <LucidePieChart className="h-5 w-5" />
@@ -153,13 +157,24 @@ const DashboardGraphs: React.FC<DashboardGraphsProps> = ({ schedules }) => {
                   nameKey="name"
                 >
                   {statusData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    <Cell 
+                      key={`cell-${index}`} 
+                      fill={
+                        entry.name.toLowerCase() === 'failed' 
+                          ? '#FF0000'  // Bright red for failed status
+                          : COLORS[index % COLORS.length]
+                      } 
+                    />
                   ))}
                 </Pie>
                 <Tooltip formatter={(value) => [`${value} meetings`, 'Count']} />
                 <Legend layout="horizontal" verticalAlign="bottom" align="center" />
               </PieChart>
             </ResponsiveContainer>
+          </div>
+          {/* Total Meetings Badge */}
+          <div className="absolute top-2 right-2 bg-blue-500 text-white rounded-full px-3 py-1 text-xs">
+            Total: {totalMeetings}
           </div>
         </CardContent>
       </Card>
@@ -188,7 +203,7 @@ const DashboardGraphs: React.FC<DashboardGraphsProps> = ({ schedules }) => {
                 <XAxis dataKey="name" />
                 <YAxis />
                 <Tooltip />
-                <Bar dataKey="count" fill="#8884d8" name="Meetings" />
+                <Bar dataKey="count" fill="#1b09d9" name="Meetings" />
               </BarChart>
             </ResponsiveContainer>
           </div>

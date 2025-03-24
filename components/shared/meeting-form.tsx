@@ -93,6 +93,9 @@ export default function MeetingForm({
     mode: "onChange"
   });
 
+
+  
+
   useEffect(() => {
     if (formValues?.quantity) {
       setInternalQuantity(formValues.quantity.toString());
@@ -158,11 +161,13 @@ export default function MeetingForm({
 
   const downloadTemplateFile = () => {
     try {
-      // Create sample data for the template
+      // Create sample data for the template using the data from the image
       const sampleData = [
-        { name: "Bot 1", countryCode: "US", country: "United States" },
-        { name: "Bot 2", countryCode: "UK", country: "United Kingdom" },
-        { name: "Bot 3", countryCode: "CA", country: "Canada" }
+        { name: "ALI", country: "Pakistan", countryCode: "PK" },
+        { name: "AHMED", country: "Pakistan", countryCode: "PK" },
+        { name: "ABRAHAM", country: "Pakistan", countryCode: "PK" },
+        { name: "AKRAM", country: "Pakistan", countryCode: "PK" },
+        { name: "AURANGZAIB", country: "Pakistan", countryCode: "PK" }
       ];
       
       // Create worksheet
@@ -170,14 +175,14 @@ export default function MeetingForm({
       
       // Add column descriptions in the first row
       XLSX.utils.sheet_add_aoa(ws, [
-        ["Bot Name (Required)", "Country Code (Required)", "Country Name (Optional)"]
+        ["Bot Name (Required)", "Country Name (Optional)", "Country Code (Required)"]
       ], { origin: "A1" });
       
       // Adjust column widths
       const wscols = [
         { wch: 20 }, // Bot Name
-        { wch: 15 }, // Country Code
-        { wch: 25 }  // Country Name
+        { wch: 25 }, // Country Name
+        { wch: 15 }  // Country Code
       ];
       ws['!cols'] = wscols;
       
@@ -186,7 +191,7 @@ export default function MeetingForm({
       XLSX.utils.book_append_sheet(wb, ws, "Bot Template");
       
       // Generate filename
-      const fileName = "bot_import_template.xlsx";
+      const fileName = "botsname.xlsx";
       
       // Save file
       XLSX.writeFile(wb, fileName);
@@ -220,37 +225,45 @@ export default function MeetingForm({
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
         
-        // Convert to JSON
-        const jsonData = XLSX.utils.sheet_to_json(worksheet) as Array<{
-          name: string, 
-          countryCode: string, 
-          country?: string
-        }>;
+        // Convert to JSON with more flexible parsing
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { 
+          header: 1,  // Treat first row as headers
+          blankrows: false  // Skip blank rows
+        }) as any[];
+        
+        // Remove header row
+        const headers = jsonData.shift();
+        
+        // Custom mapping to ensure consistent data structure
+        const mappedData = jsonData.map(row => ({
+          name: row[0],  // Assuming first column is name
+          countryCode: row[2] || row[1],  // Country code can be in 2nd or 3rd column
+          country: row[1] || ''  // Optional country name
+        })).filter(row => row.name && row.countryCode);
         
         // Validate data
-        if (jsonData.length === 0) {
-          throw new Error("The Excel file is empty");
+        if (mappedData.length === 0) {
+          throw new Error("No valid data found in the Excel file");
         }
         
-        if (jsonData.length > 200) {
-          throw new Error(`File contains ${jsonData.length} bots, but maximum allowed is 200`);
+        if (mappedData.length > 200) {
+          throw new Error(`File contains ${mappedData.length} bots, but maximum allowed is 200`);
         }
         
-        // Check required fields
-        const missingFields = jsonData.some(row => !row.name || !row.countryCode);
-        if (missingFields) {
-          throw new Error("Some rows are missing required fields (name, countryCode)");
-        }
+        // Normalize country codes to uppercase
+        mappedData.forEach(row => {
+          row.countryCode = row.countryCode.toString().toUpperCase();
+        });
         
         // Set imported data
-        setImportedBots(jsonData);
+        setImportedBots(mappedData);
         setIsImportMode(true);
-        setInternalQuantity(jsonData.length.toString());
-        form.setValue("quantity", jsonData.length);
+        setInternalQuantity(mappedData.length.toString());
+        form.setValue("quantity", mappedData.length);
         
         toast({
           title: "Success",
-          description: `Loaded ${jsonData.length} bots from Excel file`,
+          description: `Loaded ${mappedData.length} bots from Excel file`,
           variant: "default"
         });
       } catch (error) {

@@ -310,6 +310,19 @@ export default function Home() {
     }, 4500);
   }
 
+ 
+  const handleRejoin = useCallback((scheduleData: FormValues) => {
+    // Update form values with the schedule data
+    setFormValues(scheduleData);
+    
+    // Generate bots with the saved configuration
+    handleBotsGenerated(scheduleData.quantity, scheduleData.countryCode);
+    
+    toast.success("Previous meeting configuration loaded", {
+      description: "Form has been filled with the saved meeting details",
+    });
+  }, [handleBotsGenerated]);
+
   return (
     <>
       <DarkModeScript />
@@ -342,7 +355,7 @@ export default function Home() {
             </div>
 
             <div className="mt-6">
-              <PreviousSchedule />
+              <PreviousSchedule onRejoin={handleRejoin} />
             </div>
           </div>
         </div>

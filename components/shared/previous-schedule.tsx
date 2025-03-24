@@ -1,4 +1,3 @@
-"use-client"
 import React, { useState } from 'react'
 import { Video, Users, Globe, Clock, Calendar, Play, RefreshCw, X, MoreHorizontal, Info } from "lucide-react";
 import {
@@ -8,7 +7,7 @@ import {
     TableHead,
     TableHeader,
     TableRow,
-  } from "@/components/ui/table";
+} from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   DropdownMenu,
@@ -26,18 +25,28 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { countries, previousSchedules } from '@/app/data/constants';
-import { useRouter } from 'next/navigation'; // Add this import at the top
 
+interface PreviousScheduleProps {
+  onRejoin: (schedule: any) => void;
+}
 
-const PreviousSchedule = () => {
+const PreviousSchedule: React.FC<PreviousScheduleProps> = ({ onRejoin }) => {
   // State for dialog
   const [isInfoOpen, setIsInfoOpen] = useState(false);
   const [selectedMeeting, setSelectedMeeting] = useState<any>(null);
   
-  // Functions to handle various actions
-  const handleRejoin = (meetingId: string) => {
-    console.log(`Rejoining meeting: ${meetingId}`);
-    // Add your rejoin logic here
+  const handleRejoin = (schedule: any) => {
+    // Scroll to top smoothly
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    
+    // Call the onRejoin prop with the schedule data
+    onRejoin({
+      meetingId: schedule.meetingId,
+      password: schedule.password || "",
+      quantity: schedule.bots,
+      duration: schedule.duration,
+      countryCode: schedule.country
+    });
   };
 
   const handleTerminate = (meetingId: string) => {
@@ -50,10 +59,6 @@ const PreviousSchedule = () => {
     setIsInfoOpen(true);
   };
   
-  
-  
-  
-    
   return (
     <>
       <Card className="mt-6 dark:bg-slate-800 dark:border-slate-700">
@@ -118,13 +123,12 @@ const PreviousSchedule = () => {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="dark:bg-slate-800 dark:border-slate-700">
-                        <DropdownMenuItem 
-  className="flex items-center gap-2 dark:text-slate-300 dark:hover:bg-slate-700 dark:focus:bg-slate-700 cursor-pointer text-xs py-1"
-  onClick={() => handleRejoin(schedule)}
->
-  <RefreshCw className="h-3 w-3" />
-  <span>Rejoin</span>
-
+                          <DropdownMenuItem 
+                            className="flex items-center gap-2 dark:text-slate-300 dark:hover:bg-slate-700 dark:focus:bg-slate-700 cursor-pointer text-xs py-1"
+                            onClick={() => handleRejoin(schedule)}
+                          >
+                            <RefreshCw className="h-3 w-3" />
+                            <span>Rejoin</span>
                           </DropdownMenuItem>
                           <DropdownMenuItem 
                             className="flex items-center gap-2 dark:text-slate-300 dark:hover:bg-slate-700 dark:focus:bg-slate-700 cursor-pointer text-red-600 dark:text-red-400 text-xs py-1"
@@ -227,7 +231,7 @@ const PreviousSchedule = () => {
         </DialogContent>
       </Dialog>
     </>
-  )
-}
+  );
+};
 
-export default PreviousSchedule
+export default PreviousSchedule;
