@@ -6,7 +6,6 @@ import Cookies from "js-cookie";
 import { Video, User, Lock, Moon, Sun } from "lucide-react";
 import { getUserByUsername } from "@/lib/firebase/users";
 import bcrypt from 'bcryptjs';
-// import { GlowContainer } from "@/components/ui/GlowContainer";
 
 const generateRandomSession = () => {
   return Math.random().toString(36).substring(2) + Date.now().toString(36);
@@ -15,13 +14,13 @@ const generateRandomSession = () => {
 export default function Login() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState({ username: false, password: false });
   const [darkMode, setDarkMode] = useState(false);
   const router = useRouter();
 
-  // Check for saved theme preference on component mount
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -30,9 +29,16 @@ export default function Login() {
       setDarkMode(true);
       document.documentElement.classList.add('dark');
     }
+
+    const storedUsername = localStorage.getItem("username");
+    const storedRememberMe = localStorage.getItem("rememberMe") === "true";
+
+    if (storedRememberMe && storedUsername) {
+      setUsername(storedUsername);
+      setRememberMe(true);
+    }
   }, []);
 
-  // Toggle dark mode
   const toggleDarkMode = () => {
     const newDarkMode = !darkMode;
     setDarkMode(newDarkMode);
@@ -65,10 +71,8 @@ export default function Login() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Reset previous errors
     setError("");
     
-    // Validate form before proceeding
     if (!validateForm()) {
       return;
     }
@@ -111,20 +115,27 @@ export default function Login() {
         });
       }
 
-      // Save dark mode preference to persist after login
       Cookies.set("darkMode", darkMode ? "true" : "false", {
         expires: 30,
         secure: true,
         sameSite: 'strict'
       });
 
-      // Use Next.js router for faster navigation without a full page reload
+      if (rememberMe) {
+        localStorage.setItem("username", username);
+        localStorage.setItem("rememberMe", "true");
+      } else {
+        localStorage.removeItem("username");
+        localStorage.removeItem("rememberMe");
+      }
+
       router.push("/home");
     } catch (error) {
       setError("An error occurred during login");
       setIsLoading(false);
     }
   };
+
 
   return (
     
@@ -181,9 +192,9 @@ export default function Login() {
               <input
                 type="text"
                 id="username"
-                className={`w-full pl-10 pr-3 py-2 border rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 transition duration-200
+                className={`w-full pl-10 pr-3 py-2 border rounded-lg placeholder-gray-400 focus:outline-none focus:ring-2 transition duration-200
                   ${fieldErrors.username ? 'border-red-500 ring-1 ring-red-500' : darkMode ? 'border-gray-600' : 'border-gray-300'}
-                  ${darkMode ? 'bg-gray-700 text-gray-100 placeholder-gray-500' : 'bg-gray-50'}
+                  ${darkMode ? 'bg-gray-700 text-gray-100 placeholder-gray-500' : 'bg-gray-50 text-gray-900'}
                   ${fieldErrors.username ? 'focus:ring-red-500' : 'focus:ring-blue-500'} 
                   focus:border-transparent`}
                 value={username}
@@ -214,10 +225,10 @@ export default function Login() {
               <input
                 type="password"
                 id="password"
-                className={`w-full pl-10 pr-3 py-2 border rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 transition duration-200
-                  ${fieldErrors.password ? 'border-red-500 ring-1 ring-red-500' : darkMode ? 'border-gray-600' : 'border-gray-300'}
-                  ${darkMode ? 'bg-gray-700 text-gray-100 placeholder-gray-500' : 'bg-gray-50'}
-                  ${fieldErrors.password ? 'focus:ring-red-500' : 'focus:ring-blue-500'} 
+                className={`w-full pl-10 pr-3 py-2 border rounded-lg placeholder-gray-400 focus:outline-none focus:ring-2 transition duration-200
+                  ${fieldErrors.username ? 'border-red-500 ring-1 ring-red-500' : darkMode ? 'border-gray-600' : 'border-gray-300'}
+                  ${darkMode ? 'bg-gray-700 text-gray-100 placeholder-gray-500' : 'bg-gray-50 text-gray-900'}
+                  ${fieldErrors.username ? 'focus:ring-red-500' : 'focus:ring-blue-500'} 
                   focus:border-transparent`}
                 value={password}
                 onChange={(e) => {
@@ -236,7 +247,26 @@ export default function Login() {
             )}
           </div>
           
-          <div className="pt-2">
+          {/* Remember Me checkbox */}
+          <div className="flex items-center mt-4">
+            <input
+              id="remember-me"
+              type="checkbox"
+              checked={rememberMe}
+              onChange={() => setRememberMe(!rememberMe)}
+              className={`h-4 w-4 rounded border focus:ring-2 focus:ring-blue-500 
+                ${darkMode ? 'bg-gray-700 border-gray-600 text-blue-500' : 'bg-gray-50 border-gray-300 text-blue-600'}`}
+            />
+            <label 
+              htmlFor="remember-me" 
+              className={`ml-2 block text-sm transition-colors duration-300 
+                ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}
+            >
+              Remember me
+            </label>
+          </div>
+          
+          <div className="pt-2 mt-6">
             <button
               type="submit"
               className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-4
@@ -262,8 +292,7 @@ export default function Login() {
         </form>
 
         {/* Footer */}
-        <div className="mt-8 text-center text-sm transition-colors duration-300 
-                         mt-8 text-center text-sm">
+        <div className="mt-8 text-center text-sm transition-colors duration-300">
           <p className={darkMode ? 'text-gray-400' : 'text-gray-500'}>Secure access to your Zoom Meeting Bot Manager</p>
           <p className={`mt-1 ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>© {new Date().getFullYear()} Zoom Video Communications, Inc.</p>
         </div>

@@ -3,7 +3,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Users, Globe, Clock, Play, Loader2 } from "lucide-react";
+import { Users, Globe, Clock, Play, Loader2, Download, Upload, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,15 +23,18 @@ import {
   SelectValue
 } from "@/components/ui/select";
 import { Country } from "@/app/services/countryApi";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { toast } from "@/hooks/use-toast";
+import * as XLSX from 'xlsx';
 
 const formSchema = z.object({
   meetingId: z
     .string()
     .min(9, "Meeting ID must be at least 9 characters")
     .max(11, "Meeting ID must not exceed 11 characters"),
-  password: z.string().min(1, "Password is required"),
+  password: z
+    .string()
+    .min(1, "Password is required"),
   quantity: z
     .number()
     .min(1, "Quantity must be between 1 and 200")
@@ -42,11 +45,13 @@ const formSchema = z.object({
     .min(1, "Duration must be between 1 and 120 minutes")
     .max(120, "Duration must be between 1 and 120 minutes")
     .default(30),
-  countryCode: z.string().min(1, "Please select a country"),
+  countryCode: z
+    .string()
+    .min(1, "Please select a country"),
 });
 
 interface MeetingFormProps {
-  onBotsGenerated: (quantity: number, countryCode: string) => void;
+  onBotsGenerated: (quantity: number, countryCode: string, importedBots?: Array<{name: string, countryCode: string, country?: string}>) => void;
   onJoinMeeting: (values: z.infer<typeof formSchema>) => void;
   onFormChange?: (values: Partial<z.infer<typeof formSchema>>) => void;
   formValues?: Partial<z.infer<typeof formSchema>>;
@@ -71,6 +76,10 @@ export default function MeetingForm({
   const [isFormValid, setIsFormValid] = useState<boolean>(true);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [countryChanged, setCountryChanged] = useState<boolean>(false);
+  const [isImportMode, setIsImportMode] = useState<boolean>(false);
+  const [importedBots, setImportedBots] = useState<Array<{name: string, countryCode: string, country?: string}> | null>(null);
+  const [isImporting, setIsImporting] = useState<boolean>(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -123,39 +132,7 @@ export default function MeetingForm({
     }
   }, [formValues, form]);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    form.trigger().then(isValid => {
-      if (!isValid) {
-        toast({
-          title: "Validation Error",
-          description: "Please fix the errors in the form",
-          variant: "destructive"
-        });
-        return;
-      }
-      
-      const values = form.getValues();
-      
-      if (!validateQuantity(values.quantity)) {
-        toast({
-          title: "Error",
-          description: "Cannot generate more than 200 bots. Please reduce the quantity.",
-          variant: "destructive"
-        });
-        return;
-      }
-      
-      setIsGenerating(true);
-      
-      setTimeout(() => {
-        onBotsGenerated(values.quantity, values.countryCode);
-        setIsGenerating(false);
-        setCountryChanged(false);
-      }, countryChanged ? 1000 : 300);
-    });
-  };
+ 
 
   const handleCountryChange = (code: string) => {
     form.setValue("countryCode", code);
@@ -179,11 +156,221 @@ export default function MeetingForm({
     }
   };
 
+  const downloadTemplateFile = () => {
+    try {
+      // Create sample data for the template
+      const sampleData = [
+        { name: "Bot 1", countryCode: "US", country: "United States" },
+        { name: "Bot 2", countryCode: "UK", country: "United Kingdom" },
+        { name: "Bot 3", countryCode: "CA", country: "Canada" }
+      ];
+      
+      // Create worksheet
+      const ws = XLSX.utils.json_to_sheet(sampleData);
+      
+      // Add column descriptions in the first row
+      XLSX.utils.sheet_add_aoa(ws, [
+        ["Bot Name (Required)", "Country Code (Required)", "Country Name (Optional)"]
+      ], { origin: "A1" });
+      
+      // Adjust column widths
+      const wscols = [
+        { wch: 20 }, // Bot Name
+        { wch: 15 }, // Country Code
+        { wch: 25 }  // Country Name
+      ];
+      ws['!cols'] = wscols;
+      
+      // Create workbook
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Bot Template");
+      
+      // Generate filename
+      const fileName = "bot_import_template.xlsx";
+      
+      // Save file
+      XLSX.writeFile(wb, fileName);
+      
+      toast({
+        title: "Success",
+        description: `Template downloaded as ${fileName}`,
+        variant: "default"
+      });
+    } catch (error) {
+      console.error("Error downloading template:", error);
+      toast({
+        title: "Error",
+        description: "Failed to download template file",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: "array" });
+        
+        // Get first sheet
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        
+        // Convert to JSON
+        const jsonData = XLSX.utils.sheet_to_json(worksheet) as Array<{
+          name: string, 
+          countryCode: string, 
+          country?: string
+        }>;
+        
+        // Validate data
+        if (jsonData.length === 0) {
+          throw new Error("The Excel file is empty");
+        }
+        
+        if (jsonData.length > 200) {
+          throw new Error(`File contains ${jsonData.length} bots, but maximum allowed is 200`);
+        }
+        
+        // Check required fields
+        const missingFields = jsonData.some(row => !row.name || !row.countryCode);
+        if (missingFields) {
+          throw new Error("Some rows are missing required fields (name, countryCode)");
+        }
+        
+        // Set imported data
+        setImportedBots(jsonData);
+        setIsImportMode(true);
+        setInternalQuantity(jsonData.length.toString());
+        form.setValue("quantity", jsonData.length);
+        
+        toast({
+          title: "Success",
+          description: `Loaded ${jsonData.length} bots from Excel file`,
+          variant: "default"
+        });
+      } catch (error) {
+        console.error("Error parsing Excel file:", error);
+        toast({
+          title: "Error",
+          description: error instanceof Error ? error.message : "Failed to parse Excel file",
+          variant: "destructive"
+        });
+        
+        // Reset file input
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+      }
+    };
+    
+    reader.readAsArrayBuffer(file);
+  };
+  
+  const cancelImport = () => {
+    setIsImportMode(false);
+    setImportedBots(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    form.trigger().then(isValid => {
+      if (!isValid) {
+        toast({
+          title: "Validation Error",
+          description: "Please fix the errors in the form",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      const values = form.getValues();
+      
+      if (isImportMode && importedBots) {
+        // Import mode - use imported bots
+        if (importedBots.length > 200) {
+          toast({
+            title: "Error",
+            description: "Cannot import more than 200 bots. Please reduce the quantity in your Excel file.",
+            variant: "destructive"
+          });
+          return;
+        }
+        
+        setIsImporting(true);
+        
+        setTimeout(() => {
+          onBotsGenerated(importedBots.length, "", importedBots);
+          setIsImporting(false);
+        }, 500);
+      } else {
+        // Normal generation mode
+        if (!validateQuantity(values.quantity)) {
+          toast({
+            title: "Error",
+            description: "Cannot generate more than 200 bots. Please reduce the quantity.",
+            variant: "destructive"
+          });
+          return;
+        }
+        
+        setIsGenerating(true);
+        
+        setTimeout(() => {
+          onBotsGenerated(values.quantity, values.countryCode);
+          setIsGenerating(false);
+          setCountryChanged(false);
+        }, countryChanged ? 1000 : 300);
+      }
+    });
+  };
+  
   return (
     <Card className="bg-white dark:bg-gray-900 shadow-md flex flex-col h-full border dark:border-gray-800">
       <CardHeader className="bg-[#F8F8F8] dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex-shrink-0">
-        <CardTitle className="text-[#232333] dark:text-gray-100 text-lg font-medium">Meeting Configuration</CardTitle>
+        <div className="flex justify-between items-center">
+          <CardTitle className="text-[#232333] dark:text-gray-100 text-lg font-medium">Meeting Configuration</CardTitle>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-8 text-xs border-gray-200 dark:border-gray-700 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+              onClick={downloadTemplateFile}
+            >
+              <Download className="h-3.5 w-3.5 mr-1" />
+              Template
+            </Button>
+            <label className="cursor-pointer">
+              <Button
+                type="button"
+                variant="outline"
+                className="h-8 text-xs border-gray-200 dark:border-gray-700 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Upload className="h-3.5 w-3.5 mr-1" />
+                Import Excel
+              </Button>
+              <input
+                type="file"
+                ref={fileInputRef}
+                className="hidden"
+                accept=".xlsx,.xls"
+                onChange={handleFileUpload}
+              />
+            </label>
+          </div>
+        </div>
       </CardHeader>
+      
       <CardContent className="p-6 flex-grow overflow-y-auto">
         <Form {...form}>
           <form onSubmit={handleSubmit} className="space-y-6 h-full flex flex-col">
@@ -272,10 +459,16 @@ export default function MeetingForm({
                             }
                             onBlur();
                           }}
+                          disabled={isImportMode}
                         />
                       </FormControl>
                       {quantityError && (
                         <p className="text-xs font-medium text-red-500 dark:text-red-400">{quantityError}</p>
+                      )}
+                      {isImportMode && (
+                        <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                          Using {importedBots?.length || 0} bots from imported file
+                        </p>
                       )}
                       <FormMessage className="text-red-500 dark:text-red-400 text-xs" />
                     </FormItem>
@@ -331,7 +524,7 @@ export default function MeetingForm({
                           handleCountryChange(value);
                         }}
                         value={field.value}
-                        disabled={isLoading || isGenerating}
+                        disabled={isLoading || isGenerating || isImportMode}
                       >
                         <FormControl>
                           <SelectTrigger className="border-gray-300 dark:border-gray-700 focus:border-[#0E72ED] focus:ring-[#0E72ED] h-10 dark:bg-gray-800 dark:text-gray-100">
@@ -354,29 +547,59 @@ export default function MeetingForm({
                           )}
                         </SelectContent>
                       </Select>
+                      {isImportMode && (
+                        <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                          Using countries from imported file
+                        </p>
+                      )}
                       <FormMessage className="text-red-500 dark:text-red-400 text-xs" />
                     </FormItem>
                   )}
                 />
               </div>
+              
+              {isImportMode && (
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md p-3 mt-2">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                        Excel Import Mode Active
+                      </p>
+                      <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                        {importedBots?.length || 0} bots will be created with country settings from the file
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-800/50"
+                      onClick={cancelImport}
+                    >
+                      <X className="h-3.5 w-3.5 mr-1" />
+                      Cancel Import
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3 mt-auto pt-4 border-t border-gray-100 dark:border-gray-800">
               <Button
                 type="submit"
                 className="flex-1 bg-[#0E72ED] hover:bg-[#0B5CCA] dark:bg-blue-700 dark:hover:bg-blue-800 text-white font-medium h-10 rounded-md"
-                disabled={isLoading || isGenerating || !isFormValid}
+                disabled={isLoading || isGenerating || isImporting || !isFormValid}
                 onClick={() => {
                   form.trigger();
                 }}
               >
-                {isGenerating || isLoading ? (
+                {isGenerating || isLoading || isImporting ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    {countryChanged ? "Updating..." : "Generating..."}
+                    {isImporting ? "Importing..." : countryChanged ? "Updating..." : "Generating..."}
                   </>
                 ) : (
-                  "Generate Bots"
+                  isImportMode ? "Import Bots" : "Generate Bots"
                 )}
               </Button>
               <Button
@@ -395,7 +618,7 @@ export default function MeetingForm({
                     }
                   });
                 }}
-                disabled={!hasGeneratedBots || isJoining || !form.getValues().meetingId || isGenerating}
+                disabled={!hasGeneratedBots || isJoining || !form.getValues().meetingId || isGenerating || isImporting}
                 className="bg-[#27AE60] hover:bg-[#219653] dark:bg-green-700 dark:hover:bg-green-800 text-white font-medium h-10 rounded-md"
               >
                 {isJoining ? (

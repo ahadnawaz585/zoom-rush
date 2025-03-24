@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useState } from "react";
 import {
   Table,
@@ -12,10 +10,11 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
-import { Pencil, Check, X, UserCircle2 } from "lucide-react";
+import { Pencil, Check, X, UserCircle2, Loader2, Download } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import Image from "next/image";
 import { toast } from "@/hooks/use-toast";
+import * as XLSX from 'xlsx';
 
 interface Bot {
   id: number;
@@ -28,7 +27,7 @@ interface Bot {
 
 interface BotListProps {
   bots: Bot[];
-  loading: boolean
+  loading: boolean;
 }
 
 export default function BotList({ bots, loading }: BotListProps) {
@@ -36,6 +35,39 @@ export default function BotList({ bots, loading }: BotListProps) {
   const [editingBotId, setEditingBotId] = useState<number | null>(null);
   const [editedName, setEditedName] = useState<string>("");
   const [nameError, setNameError] = useState<string | null>(null);
+  const [isDownloading, setIsDownloading] = useState<boolean>(false);
+
+  // Enhanced generateUniqueBotNames function that properly handles imported names
+  const generateUniqueBotNames = (botList: Bot[]): Bot[] => {
+    if (botList.length > 200) return [];
+    
+    const usedNames = new Set<string>();
+    const processedBots = botList.map(bot => {
+      // If the bot already has a name (from Excel import), use it as base
+      let baseName = bot.name || `Bot ${bot.id}`;
+      let uniqueName = baseName;
+      let counter = 1;
+      
+      // If the name is already used, append a number until we find a unique name
+      while (usedNames.has(uniqueName.toLowerCase())) {
+        uniqueName = `${baseName} ${counter}`;
+        counter++;
+      }
+      
+      // Add the unique name to our set (in lowercase for case-insensitive comparison)
+      usedNames.add(uniqueName.toLowerCase());
+      
+      // Return the bot with its unique name
+      return {
+        ...bot,
+        name: uniqueName,
+        status: bot.status || "Ready",
+        id: bot.id || Math.random() * 1000000
+      };
+    });
+    
+    return processedBots;
+  };
 
   useEffect(() => {
     if (bots && bots.length > 0 && bots.length <= 200) {
@@ -46,24 +78,10 @@ export default function BotList({ bots, loading }: BotListProps) {
     }
   }, [bots]);
 
-  const generateUniqueBotNames = (botList: Bot[]): Bot[] => {
-    if (botList.length > 200) return [];
-    const usedNames = new Set<string>();
-    return botList.map(bot => {
-      let baseName = bot.name;
-      let uniqueName = baseName;
-      let counter = 1;
-      while (usedNames.has(uniqueName)) {
-        uniqueName = `${baseName}-${counter}`;
-        counter++;
-      }
-      usedNames.add(uniqueName);
-      return { ...bot, name: uniqueName };
-    });
-  };
-
   const isNameDuplicate = (name: string, currentBotId: number): boolean => {
-    return enhancedBots.some(bot => bot.name === name && bot.id !== currentBotId);
+    return enhancedBots.some(bot => 
+      bot.name.toLowerCase() === name.toLowerCase() && bot.id !== currentBotId
+    );
   };
 
   const startEditing = (bot: Bot) => {
@@ -101,6 +119,54 @@ export default function BotList({ bots, loading }: BotListProps) {
     setNameError(null);
   };
 
+  const exportToExcel = () => {
+    if (enhancedBots.length === 0) {
+      toast({
+        title: "Error",
+        description: "No bots to export",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsDownloading(true);
+    
+    try {
+      const exportData = enhancedBots.map(bot => ({
+        name: bot.name,
+        country: bot.country || '',
+        countryCode: bot.countryCode || '',
+        status: bot.status
+      }));
+      
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Bots");
+      
+      const now = new Date();
+      const dateStr = now.toISOString().split('T')[0];
+      const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-');
+      const fileName = `bots_${dateStr}_${timeStr}.xlsx`;
+      
+      XLSX.writeFile(wb, fileName);
+      
+      toast({
+        title: "Success",
+        description: `${enhancedBots.length} bots exported to ${fileName}`,
+        variant: "default"
+      });
+    } catch (error) {
+      console.error("Error exporting to Excel:", error);
+      toast({
+        title: "Error",
+        description: "Failed to export bots to Excel",
+        variant: "destructive"
+      });
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   const getStatusStyle = (status: string) => {
     switch (status) {
       case "Connected":
@@ -120,16 +186,63 @@ export default function BotList({ bots, loading }: BotListProps) {
 
   const hasBots = enhancedBots.length > 0;
 
+  const renderLoadingState = () => (
+    <div className="flex flex-col items-center justify-center h-full text-center py-8 text-gray-500 dark:text-gray-400">
+      <div className="mb-4">
+        <Loader2 className="h-12 w-12 text-blue-500 dark:text-blue-400 animate-spin" />
+      </div>
+      <p className="text-lg font-medium text-gray-600 dark:text-gray-300">Generating Bots</p>
+      <p className="text-sm mt-1.5 text-gray-500 dark:text-gray-400">
+        Please wait while we create your bots...
+      </p>
+    </div>
+  );
+
+  const renderEmptyState = () => (
+    <div className="flex flex-col items-center justify-center h-full text-center py-8 text-gray-500 dark:text-gray-400">
+      <UserCircle2 className="h-12 w-12 text-blue-200 dark:text-blue-800 mb-3" />
+      <p className="text-lg font-medium text-gray-600 dark:text-gray-300">No bots generated yet</p>
+      <p className="text-sm mt-1.5 text-gray-500 dark:text-gray-400">
+        Click the &quot;Generate Bots&quot; button to create bots
+      </p>
+    </div>
+  );
+
   return (
     <Card className="h-[400px] flex flex-col bg-white dark:bg-gray-900 shadow-sm border border-gray-100 dark:border-gray-800">
       <CardHeader className="bg-[#F8F8F8] dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
-        <CardTitle className="text-gray-800 dark:text-gray-100 text-lg font-semibold flex items-center">
-          <UserCircle2 className="h-5 w-5 text-blue-600 dark:text-blue-400 mr-2" />
-          Generated Bots
-        </CardTitle>
+        <div className="flex justify-between items-center">
+          <CardTitle className="text-gray-800 dark:text-gray-100 text-lg font-semibold flex items-center">
+            <UserCircle2 className="h-5 w-5 text-blue-600 dark:text-blue-400 mr-2" />
+            Generated Bots
+          </CardTitle>
+          {hasBots && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 text-xs border-gray-200 dark:border-gray-700 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+              onClick={exportToExcel}
+              disabled={isDownloading || loading}
+            >
+              {isDownloading ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                  Exporting...
+                </>
+              ) : (
+                <>
+                  <Download className="h-3.5 w-3.5 mr-1" />
+                  Export to Excel
+                </>
+              )}
+            </Button>
+          )}
+        </div>
       </CardHeader>
       <CardContent className="flex-1 p-0">
-        {(hasBots && !loading) ? (
+        {loading ? (
+          renderLoadingState()
+        ) : hasBots ? (
           <div className="h-full rounded-b-lg overflow-hidden">
             <ScrollArea className="h-[320px]">
               <Table>
@@ -147,7 +260,7 @@ export default function BotList({ bots, loading }: BotListProps) {
                       <TableCell className="text-gray-800 dark:text-gray-200 py-0.5">
                         {editingBotId === bot.id ? (
                           <div className="space-y-1">
-                            <input
+                            <Input
                               value={editedName}
                               onChange={(e) => setEditedName(e.target.value)}
                               className="w-full max-w-[200px] p-1 border-gray-200 dark:border-gray-700 focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100"
@@ -222,13 +335,7 @@ export default function BotList({ bots, loading }: BotListProps) {
             </ScrollArea>
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center h-full text-center py-8 text-gray-500 dark:text-gray-400">
-            <UserCircle2 className="h-12 w-12 text-blue-200 dark:text-blue-800 mb-3" />
-            <p className="text-lg font-medium text-gray-600 dark:text-gray-300">No bots generated yet</p>
-            <p className="text-sm mt-1.5 text-gray-500 dark:text-gray-400">
-              Click the &quot;Generate Bots&quot; button to create bots
-            </p>
-          </div>
+          renderEmptyState()
         )}
       </CardContent>
     </Card>

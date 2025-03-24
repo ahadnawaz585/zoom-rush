@@ -1,4 +1,3 @@
-// Modified page.tsx with graph integration
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
@@ -7,14 +6,14 @@ import { toast } from "sonner";
 import MeetingForm from "@/components/shared/meeting-form";
 import BotList from "@/components/shared/bot-list";
 import PreviousSchedule from "@/components/shared/previous-schedule";
- // Import the new graphs component
 import Navbar from "@/components/Navbar";
 import { generateBotName } from "@/lib/botUtils";
 import { useRouter } from "next/navigation";
 import { Country } from "../services/countryApi";
 import Cookies from "js-cookie";
-import { previousSchedules } from '@/app/data/constants'; // Import the schedules data
+import { previousSchedules } from '@/app/data/constants';
 import DashboardGraphs from "@/components/dashboard/DashboardGraphs";
+import Head from "next/head";
 
 // Defer Zoom SDK imports
 let ZoomMtg: any = null;
@@ -36,11 +35,39 @@ interface FormValues {
   countryCode: string;
 }
 
+// Create a script to handle dark mode before page renders
+const DarkModeScript = () => {
+  return (
+    <script
+      dangerouslySetInnerHTML={{
+        __html: `
+          (function() {
+            try {
+              const isDarkMode = localStorage.getItem('darkMode') === 'true' || 
+                (!('darkMode' in localStorage) && 
+                window.matchMedia('(prefers-color-scheme: dark)').matches);
+              
+              if (isDarkMode) {
+                document.documentElement.classList.add('dark');
+              } else {
+                document.documentElement.classList.remove('dark');
+              }
+            } catch (e) {
+              // Fallback if localStorage is not available
+            }
+          })();
+        `,
+      }}
+    />
+  );
+};
+
 export default function Home() {
   const [generatedBots, setGeneratedBots] = useState<Bot[]>([]);
   const [isJoining, setIsJoining] = useState(false);
   const [countries, setCountries] = useState<Country[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isGeneratingBots, setIsGeneratingBots] = useState(false);
   const [countryMap, setCountryMap] = useState<Record<string, Country>>({});
   const [formValues, setFormValues] = useState<FormValues>({
     meetingId: "",
@@ -51,27 +78,60 @@ export default function Home() {
   });
   const router = useRouter();
   
-  // Check for dark mode on component mount
   useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleChange = (e: MediaQueryListEvent) => {
+      if (!('darkMode' in localStorage)) {
+        if (e.matches) {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
+      }
+    };
+
+    
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
+  
+  const toggleDarkMode = useCallback(() => {
     const isDarkMode = document.documentElement.classList.contains('dark');
     if (isDarkMode) {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('darkMode', 'false');
+    } else {
       document.documentElement.classList.add('dark');
+      localStorage.setItem('darkMode', 'true');
     }
   }, []);
   
-  // Fetch countries on component mount
   useEffect(() => {
     async function loadCountries() {
       setIsLoading(true);
       try {
-        // Fetch countries directly from the API endpoint
+        const cachedData = sessionStorage.getItem('countries');
+        if (cachedData) {
+          const parsedData = JSON.parse(cachedData);
+          setCountries(parsedData);
+          
+          const countryMapData: Record<string, Country> = {};
+          parsedData.forEach((country: Country) => {
+            countryMapData[country.code] = country;
+          });
+          setCountryMap(countryMapData);
+          setIsLoading(false);
+          return;
+        }
+        
         const response = await fetch('/api/countries');
         if (!response.ok) {
           throw new Error('Failed to load countries');
         }
         const countriesData = await response.json();
         
-        // Create a map for instant lookups
+        sessionStorage.setItem('countries', JSON.stringify(countriesData));
+        
         const countryMapData: Record<string, Country> = {};
         countriesData.forEach((country: Country) => {
           countryMapData[country.code] = country;
@@ -92,12 +152,10 @@ export default function Home() {
     loadCountries();
   }, []);
   
-  // Memoized function to get country by code - instant lookup
   const getCountryByCode = useCallback((code: string): Country | undefined => {
     return countryMap[code];
   }, [countryMap]);
   
-  // Function to generate bots for a specific country
   const generateBotsForCountry = useCallback((countryCode: string, quantity: number) => {
     const country = getCountryByCode(countryCode);
     
@@ -106,10 +164,8 @@ export default function Home() {
       return;
     }
     
-    // Generate bot names in bulk for better performance
     const botNames = Array.from({ length: quantity }, () => generateBotName(countryCode));
     
-    // Create bots with pre-fetched country data
     const bots = botNames.map((name, i) => ({
       id: i + 1,
       name,
@@ -122,7 +178,6 @@ export default function Home() {
     setGeneratedBots(bots);
   }, [getCountryByCode]);
   
-  // Handle form value changes - only updates state, doesn't generate bots
   const handleFormChange = useCallback((newValues: Partial<FormValues>) => {
     setFormValues(prev => {
       const updated = { ...prev, ...newValues };
@@ -130,29 +185,53 @@ export default function Home() {
     });
   }, []);
   
-  // Bot generation function - only called when button is clicked
-  const handleBotsGenerated = useCallback(async (quantity: number, countryCode: string) => {
-    setIsLoading(true);
+  const handleBotsGenerated = useCallback(async (
+    quantity: number, 
+    countryCode: string, 
+    importedBots?: Array<{name: string, countryCode: string, country?: string}>
+  ) => {
+    setIsGeneratingBots(true);
+    setGeneratedBots([]);
     
     try {
-      // This is now the only place where bots are generated
-      generateBotsForCountry(countryCode, quantity);
-      
-      const country = getCountryByCode(countryCode);
-      toast.success("Bots generated successfully", {
-        description: `Generated ${quantity} bots from ${country?.name || countryCode}`,
-      });
+      if (importedBots) {
+        // Handle imported bots
+        const processedBots = importedBots.map((bot, index) => {
+          const country = getCountryByCode(bot.countryCode);
+          return {
+            id: index + 1,
+            name: bot.name,
+            status: "Ready",
+            country: bot.country || country?.name || bot.countryCode,
+            countryCode: bot.countryCode,
+            flag: country?.flag
+          };
+        });
+        
+        setGeneratedBots(processedBots);
+        toast.success("Bots imported successfully", {
+          description: `Imported ${processedBots.length} bots from Excel file`,
+        });
+      } else {
+        // Generate new bots
+        await new Promise(resolve => setTimeout(resolve, 400));
+        generateBotsForCountry(countryCode, quantity);
+        
+        const country = getCountryByCode(countryCode);
+        toast.success("Bots generated successfully", {
+          description: `Generated ${quantity} bots from ${country?.name || countryCode}`,
+        });
+      }
     } catch (error) {
-      console.error("Error generating bots:", error);
-      toast.error("Error generating bots", {
+      console.error("Error generating/importing bots:", error);
+      toast.error("Error processing bots", {
         description: "Please try again",
       });
     } finally {
-      setIsLoading(false);
+      setIsGeneratingBots(false);
     }
   }, [generateBotsForCountry, getCountryByCode]);
 
-  // Optimized joining function
   const joinMeeting = useCallback(async (joinFormValues: FormValues) => {
     if (generatedBots.length === 0) {
       toast.error("No bots generated");
@@ -162,7 +241,6 @@ export default function Home() {
     setIsJoining(true);
 
     try {
-      // Simulate API call to join meeting
       const data = {
         success: true,
         meetingId: joinFormValues.meetingId,
@@ -174,10 +252,8 @@ export default function Home() {
           description: `${joinFormValues.quantity} bots are connecting to the meeting`,
         });
 
-        // Start simulating status updates immediately
         simulateStatusUpdates(joinFormValues.quantity);
         
-        // Load Zoom SDK in background
         loadZoomSDK().catch(error => {
           console.error("Error loading Zoom SDK:", error);
         });
@@ -191,15 +267,12 @@ export default function Home() {
     }
   }, [generatedBots.length]);
 
-  // Optimized Zoom SDK loading with caching
   async function loadZoomSDK() {
     if (!ZoomMtg) {
       try {
-        // Dynamic import of Zoom SDK
         const zoomModule = await import("@zoomus/websdk");
         ZoomMtg = zoomModule.ZoomMtg;
         
-        // Initialize Zoom Web SDK
         ZoomMtg.setZoomJSLib('https://source.zoom.us/2.11.0/lib', '/av');
         ZoomMtg.preLoadWasm();
         ZoomMtg.prepareWebSDK();
@@ -213,7 +286,6 @@ export default function Home() {
     return ZoomMtg;
   }
 
-  // Optimized status update function
   function simulateStatusUpdates(botCount: number) {
     const statuses = ['Initializing', 'Joining', 'Connected'];
     let currentStatusIndex = 0;
@@ -233,45 +305,48 @@ export default function Home() {
       currentStatusIndex++;
     }, 1500);
     
-    // Save to "previous schedules" after connected
     setTimeout(() => {
       console.log("Meeting saved to previous schedules");
     }, 4500);
   }
 
   return (
-    <div className="h-screen flex flex-col bg-[#F5F8FC] dark:bg-gradient-to-b dark:from-gray-900 dark:to-gray-800 transition-colors duration-300">
+    <>
+      <DarkModeScript />
       
-      <Navbar />
-      
-      {/* Main content */}
-      <div className="flex-grow overflow-auto p-4 sm:p-6 lg:p-8">
-        <div className="max-w-1xl mx-auto flex flex-col h-full">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-grow">
-            <MeetingForm
-              onBotsGenerated={handleBotsGenerated}
-              onJoinMeeting={joinMeeting}
-              onFormChange={handleFormChange}
-              formValues={formValues}
-              isJoining={isJoining}
-              isLoading={isLoading}
-              hasGeneratedBots={generatedBots.length > 0}
-              countries={countries}
-            />
+      <div className="h-screen flex flex-col bg-[#F5F8FC] dark:bg-gradient-to-b dark:from-gray-900 dark:to-gray-800 transition-colors duration-300">
+        <Navbar />
+        
+        <div className="flex-grow overflow-auto p-4 sm:p-6 lg:p-8">
+          <div className="max-w-1xl mx-auto flex flex-col h-full">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-grow">
+              <MeetingForm
+                onBotsGenerated={handleBotsGenerated}
+                onJoinMeeting={joinMeeting}
+                onFormChange={handleFormChange}
+                formValues={formValues}
+                isJoining={isJoining}
+                isLoading={isLoading}
+                hasGeneratedBots={generatedBots.length > 0}
+                countries={countries}
+              />
 
-            <BotList bots={generatedBots} loading={isLoading} />
-          </div>
+              <BotList 
+                bots={generatedBots} 
+                loading={isLoading || isGeneratingBots}
+              />
+            </div>
 
-          {/* Add graphs before the previous schedule */}
-          <div className="mt-6">
-          <DashboardGraphs schedules={previousSchedules} />
-          </div>
+            <div className="mt-6">
+              <DashboardGraphs schedules={previousSchedules} />
+            </div>
 
-          <div className="mt-6">
-            <PreviousSchedule />
+            <div className="mt-6">
+              <PreviousSchedule />
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }

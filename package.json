@@ -78,9 +78,11 @@
     "typescript": "5.2.2",
     "uuid": "^11.1.0",
     "vaul": "^0.9.9",
+    "xlsx": "^0.18.5",
     "zod": "^3.24.2"
   },
   "devDependencies": {
-    "@types/recharts": "^1.8.29"
+    "@types/recharts": "^1.8.29",
+    "@types/xlsx": "^0.0.35"
   }
 }
