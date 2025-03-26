@@ -1,0 +1,27 @@
+/* Use @import for external stylesheets if needed */
+@import url("https://source.zoom.us/3.12.0/css/bootstrap.css");
+@import url("https://source.zoom.us/2.18.0/css/react-select.css");
+
+/* Add proper selector syntax with a dot for class */
+.App main {
+    width: 70%;
+    margin: auto;
+    text-align: center;
+}
+
+.App main button {
+    margin-top: 20px;
+    background-color: #2D8CFF;
+    color: #ffffff;
+    text-decoration: none;
+    padding: 10px 40px; /* Shorthand for padding */
+    display: inline-block;
+    border-radius: 10px;
+    cursor: pointer;
+    border: none;
+    outline: none;
+}
+
+.App main button:hover {
+    background-color: #2681F2;
+}
