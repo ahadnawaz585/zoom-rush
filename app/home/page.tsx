@@ -14,6 +14,7 @@ import Cookies from "js-cookie";
 import { previousSchedules } from '@/app/data/constants';
 import DashboardGraphs from "@/components/dashboard/DashboardGraphs";
 import Head from "next/head";
+import { generateBotNames } from "../services/generateNames";
 
 // Defer Zoom SDK imports
 let ZoomMtg: any = null;
@@ -185,52 +186,72 @@ export default function Home() {
     });
   }, []);
   
-  const handleBotsGenerated = useCallback(async (
+  const handleBotsGenerated = useCallback(async ( 
     quantity: number, 
     countryCode: string, 
     importedBots?: Array<{name: string, countryCode: string, country?: string}>
-  ) => {
+) => {
     setIsGeneratingBots(true);
     setGeneratedBots([]);
-    
+
     try {
-      if (importedBots) {
-        // Handle imported bots
-        const processedBots = importedBots.map((bot, index) => {
-          const country = getCountryByCode(bot.countryCode);
-          return {
-            id: index + 1,
-            name: bot.name,
-            status: "Ready",
-            country: bot.country || country?.name || bot.countryCode,
-            countryCode: bot.countryCode,
-            flag: country?.flag
-          };
-        });
-        
-        setGeneratedBots(processedBots);
-        toast.success("Bots imported successfully", {
-          description: `Imported ${processedBots.length} bots from Excel file`,
-        });
-      } else {
-        // Generate new bots
-        await new Promise(resolve => setTimeout(resolve, 400));
-        generateBotsForCountry(countryCode, quantity);
-        
-        const country = getCountryByCode(countryCode);
-        toast.success("Bots generated successfully", {
-          description: `Generated ${quantity} bots from ${country?.name || countryCode}`,
-        });
-      }
+        if (importedBots) {
+            // Handle imported bots
+            const processedBots = importedBots.map((bot, index) => {
+                const country = getCountryByCode(bot.countryCode);
+                return {
+                    id: index + 1,
+                    name: bot.name,
+                    status: "Ready",
+                    country: bot.country || country?.name || bot.countryCode,
+                    countryCode: bot.countryCode,
+                    flag: country?.flag // Ensure flag is assigned
+                };
+            });
+
+            setGeneratedBots(processedBots);
+            toast.success("Bots imported successfully", {
+                description: `Imported ${processedBots.length} bots from Excel file`,
+            });
+        } else {
+            const country = getCountryByCode(countryCode);
+
+            if (countryCode === 'IN') {
+                const botNames = generateBotNames({ 
+                    quantity, 
+                    gender: 'mixed' // Customizable
+                });
+
+                const generatedBots = botNames.map((name, index) => ({
+                    id: index,
+                    name,
+                    status: 'Ready',
+                    countryCode: 'IN',
+                    country: 'India',
+                    flag: country?.flag || '🇮🇳' // Ensure the Indian flag is included
+                }));
+
+                setGeneratedBots(generatedBots);
+            } else {
+                // Generate new bots
+                await new Promise(resolve => setTimeout(resolve, 400));
+                generateBotsForCountry(countryCode, quantity);
+
+                toast.success("Bots generated successfully", {
+                    description: `Generated ${quantity} bots from ${country?.name || countryCode}`,
+                });
+            }
+        }
     } catch (error) {
-      console.error("Error generating/importing bots:", error);
-      toast.error("Error processing bots", {
-        description: "Please try again",
-      });
+        console.error("Error generating/importing bots:", error);
+        toast.error("Error processing bots", {
+            description: "Please try again",
+        });
     } finally {
-      setIsGeneratingBots(false);
+        setIsGeneratingBots(false);
     }
-  }, [generateBotsForCountry, getCountryByCode]);
+}, [generateBotsForCountry, getCountryByCode]);
+
 
   const joinMeeting = useCallback(async (joinFormValues: FormValues) => {
     if (generatedBots.length === 0) {
@@ -323,6 +344,9 @@ export default function Home() {
     });
   }, [handleBotsGenerated]);
 
+
+
+  
   return (
     <>
       <DarkModeScript />
