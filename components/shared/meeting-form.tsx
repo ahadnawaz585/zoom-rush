@@ -1,9 +1,8 @@
-"use client";
-
+import React, { useState } from 'react';
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Users, Globe, Clock, Play, Loader2, Download, Upload, X } from "lucide-react";
+import { Users, Globe, Clock, Play, Loader2, Download, Upload, X, Calendar } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,10 +22,12 @@ import {
   SelectValue
 } from "@/components/ui/select";
 import { Country } from "@/app/services/countryApi";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { toast } from "@/hooks/use-toast";
 import * as XLSX from 'xlsx';
+import { format } from 'date-fns';
 
+// Update form schema to include scheduling fields
 const formSchema = z.object({
   meetingId: z
     .string()
@@ -48,11 +49,21 @@ const formSchema = z.object({
   countryCode: z
     .string()
     .min(1, "Please select a country"),
+  isScheduled: z
+    .boolean()
+    .default(false),
+  scheduledDate: z
+    .string()
+    .optional(),
+  scheduledTime: z
+    .string()
+    .optional(),
 });
 
 interface MeetingFormProps {
   onBotsGenerated: (quantity: number, countryCode: string, importedBots?: Array<{name: string, countryCode: string, country?: string}>) => void;
   onJoinMeeting: (values: z.infer<typeof formSchema>) => void;
+  onScheduleMeeting?: (values: z.infer<typeof formSchema>) => void;
   onFormChange?: (values: Partial<z.infer<typeof formSchema>>) => void;
   formValues?: Partial<z.infer<typeof formSchema>>;
   isJoining: boolean;
@@ -64,6 +75,7 @@ interface MeetingFormProps {
 export default function MeetingForm({
   onBotsGenerated,
   onJoinMeeting,
+  onScheduleMeeting,
   onFormChange,
   formValues,
   isJoining,
@@ -71,6 +83,7 @@ export default function MeetingForm({
   hasGeneratedBots,
   countries
 }: MeetingFormProps) {
+  const [isScheduleMode, setIsScheduleMode] = useState(false);
   const [quantityError, setQuantityError] = useState<string | null>(null);
   const [internalQuantity, setInternalQuantity] = useState<string>("5");
   const [isFormValid, setIsFormValid] = useState<boolean>(true);
@@ -89,10 +102,12 @@ export default function MeetingForm({
       quantity: formValues?.quantity || 5,
       duration: formValues?.duration || 30,
       countryCode: formValues?.countryCode || "US",
+      isScheduled: false,
+      scheduledDate: "",
+      scheduledTime: "",
     },
     mode: "onChange"
   });
-
 
   
 
@@ -307,7 +322,38 @@ export default function MeetingForm({
       }
       
       const values = form.getValues();
+
+      if (isScheduleMode) {
+        // Handle scheduled meeting
+        if (!values.scheduledDate || !values.scheduledTime) {
+          toast({
+            title: "Validation Error",
+            description: "Please select both date and time for scheduling",
+            variant: "destructive"
+          });
+          return;
+        }
+
+        const scheduledDateTime = new Date(`${values.scheduledDate}T${values.scheduledTime}`);
+        if (scheduledDateTime < new Date()) {
+          toast({
+            title: "Invalid Schedule",
+            description: "Please select a future date and time",
+            variant: "destructive"
+          });
+          return;
+        }
+
+        if (onScheduleMeeting) {
+          onScheduleMeeting({
+            ...values,
+            isScheduled: true
+          });
+        }
+        return;
+      }
       
+      // Handle immediate meeting
       if (isImportMode && importedBots) {
         // Import mode - use imported bots
         if (importedBots.length > 200) {
@@ -346,6 +392,7 @@ export default function MeetingForm({
       }
     });
   };
+
   
   return (
     <Card className="bg-white dark:bg-gray-900 shadow-md flex flex-col h-full border dark:border-gray-800">
@@ -354,6 +401,14 @@ export default function MeetingForm({
           <CardTitle className="text-[#232333] dark:text-gray-100 text-lg font-medium">Meeting Configuration</CardTitle>
           <div className="flex gap-2">
             <Button
+              type="button"
+              variant={isScheduleMode ? "default" : "outline"}
+              className="h-8 text-xs"
+              onClick={() => setIsScheduleMode(!isScheduleMode)}
+            >
+              <Calendar className="h-3.5 w-3.5 mr-1" />
+              {isScheduleMode ? "Cancel Schedule" : "Schedule"}
+            </Button>   <Button
               type="button"
               variant="outline"
               className="h-8 text-xs border-gray-200 dark:border-gray-700 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
@@ -597,16 +652,60 @@ export default function MeetingForm({
               )}
             </div>
 
+
+            {isScheduleMode && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FormField
+                  control={form.control}
+                  name="scheduledDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-[#747487] dark:text-gray-300 font-medium text-sm">Schedule Date</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="date"
+                          min={format(new Date(), 'yyyy-MM-dd')}
+                          className="border-gray-300 dark:border-gray-700 focus:border-[#0E72ED] focus:ring-[#0E72ED] h-10 bg-white dark:bg-gray-800 dark:text-gray-100"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage className="text-red-500 dark:text-red-400 text-xs" />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="scheduledTime"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-[#747487] dark:text-gray-300 font-medium text-sm">Schedule Time</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="time"
+                          className="border-gray-300 dark:border-gray-700 focus:border-[#0E72ED] focus:ring-[#0E72ED] h-10 bg-white dark:bg-gray-800 dark:text-gray-100"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage className="text-red-500 dark:text-red-400 text-xs" />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            )}
+
             <div className="flex flex-col sm:flex-row gap-3 mt-auto pt-4 border-t border-gray-100 dark:border-gray-800">
               <Button
                 type="submit"
                 className="flex-1 bg-[#0E72ED] hover:bg-[#0B5CCA] dark:bg-blue-700 dark:hover:bg-blue-800 text-white font-medium h-10 rounded-md"
                 disabled={isLoading || isGenerating || isImporting || !isFormValid}
-                onClick={() => {
-                  form.trigger();
-                }}
               >
-                {isGenerating || isLoading || isImporting ? (
+                {isScheduleMode ? (
+                  <>
+                    <Calendar className="h-4 w-4 mr-2" />
+                    Schedule Meeting
+                  </>
+                ) : isGenerating || isLoading || isImporting ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                     {isImporting ? "Importing..." : countryChanged ? "Updating..." : "Generating..."}
@@ -615,37 +714,40 @@ export default function MeetingForm({
                   isImportMode ? "Import Bots" : "Generate Bots"
                 )}
               </Button>
-              <Button
-                type="button"
-                onClick={() => {
-                  form.trigger().then(isValid => {
-                    if (isValid) {
-                      const values = form.getValues();
-                      onJoinMeeting(values);
-                    } else {
-                      toast({
-                        title: "Validation Error",
-                        description: "Please fix the errors in the form",
-                        variant: "destructive"
-                      });
-                    }
-                  });
-                }}
-                disabled={!hasGeneratedBots || isJoining || !form.getValues().meetingId || isGenerating || isImporting}
-                className="bg-[#27AE60] hover:bg-[#219653] dark:bg-green-700 dark:hover:bg-green-800 text-white font-medium h-10 rounded-md"
-              >
-                {isJoining ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Joining...
-                  </>
-                ) : (
-                  <>
-                    <Play className="w-4 h-4 mr-2" />
-                    Join Meeting
-                  </>
-                )}
-              </Button>
+              
+              {!isScheduleMode && (
+                <Button
+                  type="button"
+                  onClick={() => {
+                    form.trigger().then(isValid => {
+                      if (isValid) {
+                        const values = form.getValues();
+                        onJoinMeeting(values);
+                      } else {
+                        toast({
+                          title: "Validation Error",
+                          description: "Please fix the errors in the form",
+                          variant: "destructive"
+                        });
+                      }
+                    });
+                  }}
+                  disabled={!hasGeneratedBots || isJoining || !form.getValues().meetingId || isGenerating || isImporting}
+                  className="bg-[#27AE60] hover:bg-[#219653] dark:bg-green-700 dark:hover:bg-green-800 text-white font-medium h-10 rounded-md"
+                >
+                  {isJoining ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Joining...
+                    </>
+                  ) : (
+                    <>
+                      <Play className="w-4 h-4 mr-2" />
+                      Join Meeting
+                    </>
+                  )}
+                </Button>
+              )}
             </div>
           </form>
         </Form>
@@ -653,3 +755,60 @@ export default function MeetingForm({
     </Card>
   );
 }
+
+//             <div className="flex flex-col sm:flex-row gap-3 mt-auto pt-4 border-t border-gray-100 dark:border-gray-800">
+//               <Button
+//                 type="submit"
+//                 className="flex-1 bg-[#0E72ED] hover:bg-[#0B5CCA] dark:bg-blue-700 dark:hover:bg-blue-800 text-white font-medium h-10 rounded-md"
+//                 disabled={isLoading || isGenerating || isImporting || !isFormValid}
+//                 onClick={() => {
+//                   form.trigger();
+//                 }}
+//               >
+//                 {isGenerating || isLoading || isImporting ? (
+//                   <>
+//                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+//                     {isImporting ? "Importing..." : countryChanged ? "Updating..." : "Generating..."}
+//                   </>
+//                 ) : (
+//                   isImportMode ? "Import Bots" : "Generate Bots"
+//                 )}
+//               </Button>
+//               <Button
+//                 type="button"
+//                 onClick={() => {
+//                   form.trigger().then(isValid => {
+//                     if (isValid) {
+//                       const values = form.getValues();
+//                       onJoinMeeting(values);
+//                     } else {
+//                       toast({
+//                         title: "Validation Error",
+//                         description: "Please fix the errors in the form",
+//                         variant: "destructive"
+//                       });
+//                     }
+//                   });
+//                 }}
+//                 disabled={!hasGeneratedBots || isJoining || !form.getValues().meetingId || isGenerating || isImporting}
+//                 className="bg-[#27AE60] hover:bg-[#219653] dark:bg-green-700 dark:hover:bg-green-800 text-white font-medium h-10 rounded-md"
+//               >
+//                 {isJoining ? (
+//                   <>
+//                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+//                     Joining...
+//                   </>
+//                 ) : (
+//                   <>
+//                     <Play className="w-4 h-4 mr-2" />
+//                     Join Meeting
+//                   </>
+//                 )}
+//               </Button>
+//             </div>
+//           </form>
+//         </Form>
+//       </CardContent>
+//     </Card>
+//   );
+// }

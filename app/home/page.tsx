@@ -15,6 +15,8 @@ import { previousSchedules } from '@/app/data/constants';
 import DashboardGraphs from "@/components/dashboard/DashboardGraphs";
 import Head from "next/head";
 import { generateBotNames } from "../services/generateNames";
+import { format } from "util";
+import UpcomingMeetings from "@/components/shared/upcoming";
 
 // Defer Zoom SDK imports
 let ZoomMtg: any = null;
@@ -73,9 +75,9 @@ export default function Home() {
   const [formValues, setFormValues] = useState<FormValues>({
     meetingId: "",
     password: "",
-    quantity: 3,
-    duration: 5,
-    countryCode: "US"
+    quantity: 10,
+    duration: 60,
+    countryCode: "IN"
   });
   const router = useRouter();
   
@@ -346,7 +348,102 @@ export default function Home() {
 
 
 
-  
+  const [upcomingMeetings, setUpcomingMeetings] = useState<Array<{
+    id: string;
+    meetingId: string;
+    password: string;
+    quantity: number;
+    duration: number;
+    countryCode: string;
+    scheduledDate: string;
+    scheduledTime: string;
+    status: 'scheduled' | 'cancelled';
+    bots: Array<{
+      id: number;
+      name: string;
+      status: string;
+      countryCode: string;
+    }>;
+  }>>([]);
+
+  const handleScheduleMeeting = useCallback((values: FormValues & { scheduledDate?: string; scheduledTime?: string }) => {
+    if (!values.scheduledDate || !values.scheduledTime) {
+      toast.error("Please select both date and time");
+      return;
+    }
+
+    // Generate bot names for the scheduled meeting
+    const bots = Array.from({ length: values.quantity }, (_, index) => ({
+      id: index + 1,
+      name: generateBotName(values.countryCode),
+      status: 'Ready',
+      countryCode: values.countryCode
+    }));
+
+    const newMeeting = {
+      id: Math.random().toString(36).substr(2, 9),
+      meetingId: values.meetingId,
+      password: values.password,
+      quantity: values.quantity,
+      duration: values.duration,
+      countryCode: values.countryCode,
+      scheduledDate: values.scheduledDate,
+      scheduledTime: values.scheduledTime,
+      status: 'scheduled' as const,
+      bots
+    };
+
+    setUpcomingMeetings(prev => [...prev, newMeeting]);
+    
+    toast.success("Meeting scheduled successfully", {
+      description: `Meeting scheduled for ${format(
+        new Date(`${values.scheduledDate}T${values.scheduledTime}`),
+        'MMM d, yyyy HH:mm'
+      )}`
+    });
+  }, []);
+
+  const handleCancelMeeting = useCallback((meetingId: string) => {
+    setUpcomingMeetings(prev =>
+      prev.map(meeting =>
+        meeting.id === meetingId
+          ? { ...meeting, status: 'cancelled' as const }
+          : meeting
+      )
+    );
+
+    toast.success("Meeting cancelled successfully");
+  }, []);
+
+  const handleDeleteMeeting = useCallback((meetingId: string) => {
+    setUpcomingMeetings(prev =>
+      prev.filter(meeting => meeting.id !== meetingId)
+    );
+
+    toast.success("Meeting deleted successfully");
+  }, []);
+
+  const handleJoinScheduledMeeting = useCallback((meeting: typeof upcomingMeetings[0]) => {
+    // Update form values with the scheduled meeting details
+    setFormValues({
+      meetingId: meeting.meetingId,
+      password: meeting.password,
+      quantity: meeting.quantity,
+      duration: meeting.duration,
+      countryCode: meeting.countryCode
+    });
+
+    // Use the saved bots instead of generating new ones
+    setGeneratedBots(meeting.bots.map(bot => ({
+      ...bot,
+      country: countries.find(c => c.code === bot.countryCode)?.name,
+      flag: countries.find(c => c.code === bot.countryCode)?.flag
+    })));
+    
+    toast.success("Joining scheduled meeting", {
+      description: `Connecting ${meeting.quantity} bots to the meeting`
+    });
+  }, [countries]);
   return (
     <>
       <DarkModeScript />
@@ -360,6 +457,7 @@ export default function Home() {
               <MeetingForm
                 onBotsGenerated={handleBotsGenerated}
                 onJoinMeeting={joinMeeting}
+                onScheduleMeeting={handleScheduleMeeting}
                 onFormChange={handleFormChange}
                 formValues={formValues}
                 isJoining={isJoining}
@@ -373,6 +471,17 @@ export default function Home() {
                 loading={isLoading || isGeneratingBots}
               />
             </div>
+
+            <UpcomingMeetings
+              meetings={upcomingMeetings}
+              onJoinMeeting={handleJoinScheduledMeeting}
+              onCancelMeeting={handleCancelMeeting}
+              onDeleteMeeting={handleDeleteMeeting}
+              countries={countries.reduce((acc, country) => ({
+                ...acc,
+                [country.code]: country.name
+              }), {})}
+            />
 
             <div className="mt-6">
               <DashboardGraphs schedules={previousSchedules} />
