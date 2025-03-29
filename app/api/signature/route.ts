@@ -1,7 +1,7 @@
-// import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 // import jwt from 'jsonwebtoken';
 
-// export async function POST(req: NextRequest) {
+export async function POST(req: NextRequest) {
 //   try {
 //     const { meetingNumber, role } = await req.json();
 
@@ -45,4 +45,4 @@
 //       { status: 500 }
 //     );
 //   }
-// }
+}
