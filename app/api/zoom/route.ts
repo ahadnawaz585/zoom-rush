@@ -1,46 +1,112 @@
-import { NextResponse } from 'next/server';
-import axios from 'axios';
-import dotenv from 'dotenv';
-import { ZoomClient } from '@/lib/zoom'; // Adjust the path to your ZoomClient file
+// app/api/zoom/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+import { KJUR } from 'jsrsasign';
+import { inNumberArray, isBetween, isRequiredAllOrNone, validateRequest } from '@/lib/validation';
 
-dotenv.config();
+interface RawRequestBody {
+  meetingNumber?: string | number;
+  role?: string | number;
+  expirationSeconds?: string | number;
+}
 
-const zoomClient = new ZoomClient();
+interface CoercedRequestBody {
+  meetingNumber?: number;
+  role?: number;
+  expirationSeconds?: number;
+}
 
-export async function POST(req: Request) {
-  try {
-    const { meetingId, password, quantity, duration, botNames } = await req.json();
+interface ValidationError {
+  field: string;
+  message: string;
+}
 
-    // If no meetingId is provided, create a new meeting
-    let meetingDetails = { id: meetingId, join_url: '', password };
-    if (!meetingId || meetingId === '') {
-      const meeting = await zoomClient.createMeeting();
-      meetingDetails = {
-        id: meeting.id,
-        join_url: meeting.join_url,
-        password: meeting.password,
-      };
-    }
+const propValidations = {
+  role: inNumberArray([0, 1]),
+  expirationSeconds: isBetween(1800, 172800),
+};
 
-    // Simulate joining bots (in a real scenario, you'd use the Zoom Web SDK client-side)
-    const initialStatuses = botNames.map((name: string, index: number) => ({
-      id: index + 1,
-      name,
-      status: 'Initializing',
-    }));
+const schemaValidations = [isRequiredAllOrNone(['meetingNumber', 'role'])];
 
-    return NextResponse.json({
-      success: true,
-      meetingId: meetingDetails.id,
-      joinUrl: meetingDetails.join_url,
-      password: meetingDetails.password,
-      initialStatuses,
-    });
-  } catch (error) {
-    console.error('Zoom API Error:', error);
-    return NextResponse.json(
-      { success: false, message: 'Failed to process Zoom request' },
-      { status: 500 }
-    );
+const coerceRequestBody = (body: RawRequestBody): CoercedRequestBody => {
+  const result: CoercedRequestBody = {};
+  
+  if (body.meetingNumber !== undefined) {
+    result.meetingNumber = typeof body.meetingNumber === 'string' 
+      ? parseInt(body.meetingNumber) 
+      : body.meetingNumber;
   }
+  
+  if (body.role !== undefined) {
+    result.role = typeof body.role === 'string' 
+      ? parseInt(body.role) 
+      : body.role;
+  }
+  
+  if (body.expirationSeconds !== undefined) {
+    result.expirationSeconds = typeof body.expirationSeconds === 'string' 
+      ? parseInt(body.expirationSeconds) 
+      : body.expirationSeconds;
+  }
+
+  return result;
+};
+
+export async function POST(req: NextRequest) {
+  console.log('Method:', req.method);
+
+  // Read the body once and store it
+  const rawBody = await req.json();
+  console.log('Body:', rawBody);
+
+  const requestBody = coerceRequestBody(rawBody);
+  console.log('Coerced request body:', requestBody);
+
+  const validationErrors = validateRequest(requestBody, propValidations, schemaValidations);
+  const { meetingNumber, role } = requestBody;
+  // Fixed expiration to 60 seconds
+  const expirationSeconds = 100;
+
+  if (validationErrors.length > 0) {
+    console.log('Validation errors:', validationErrors);
+    return NextResponse.json({ errors: validationErrors }, { status: 400 });
+  }
+
+  if (!process.env.NEXT_PUBLIC_ZOOM_MEETING_SDK_KEY || !process.env.NEXT_PUBLIC_ZOOM_MEETING_SDK_SECRET) {
+    return NextResponse.json({ error: 'Zoom SDK credentials are not configured' }, { status: 500 });
+  }
+
+  const iat = Math.round(new Date().getTime() / 1000) - 30;
+  const exp = iat + expirationSeconds;
+
+  const Header = {
+    alg: 'HS256' as const,
+    typ: 'JWT' as const,
+  };
+
+  const Payload = {
+    appKey: process.env.NEXT_PUBLIC_ZOOM_MEETING_SDK_KEY,
+    sdkKey: process.env.NEXT_PUBLIC_ZOOM_MEETING_SDK_KEY,
+    mn: meetingNumber,
+    role: role,
+    iat: iat,
+    exp: exp,
+    tokenExp: exp,
+  };
+
+  const signature = KJUR.jws.JWS.sign(
+    'HS256',
+    JSON.stringify(Header),
+    JSON.stringify(Payload),
+    process.env.NEXT_PUBLIC_ZOOM_MEETING_SDK_SECRET
+  );
+
+  console.log('Generated signature:', signature);
+  return NextResponse.json({
+    signature: signature,
+    sdkKey: process.env.NEXT_PUBLIC_ZOOM_MEETING_SDK_KEY,
+  });
+}
+
+export async function OPTIONS() {
+  return NextResponse.json({}, { status: 200 });
 }

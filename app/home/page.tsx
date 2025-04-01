@@ -255,40 +255,56 @@ export default function Home() {
 }, [generateBotsForCountry, getCountryByCode]);
 
 
-  const joinMeeting = useCallback(async (joinFormValues: FormValues) => {
-    if (generatedBots.length === 0) {
-      toast.error("No bots generated");
-      return;
+const joinMeeting = useCallback(async (joinFormValues: FormValues) => {
+  if (generatedBots.length === 0) {
+    toast.error("No bots generated");
+    return;
+  }
+
+  setIsJoining(true);
+
+  try {
+    // Prepare data to send to the API
+    const requestBody = {
+      bots: generatedBots,
+      meetingId: joinFormValues.meetingId,
+      password: joinFormValues.password,
+    };
+
+    // Call the API endpoint
+    const response = await fetch("/api/join-meeting", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(requestBody),
+    });
+
+    if (!response.ok) {
+      throw new Error("API request failed");
     }
 
-    setIsJoining(true);
+    const result = await response.json();
 
-    try {
-      const data = {
-        success: true,
-        meetingId: joinFormValues.meetingId,
-        password: joinFormValues.password,
-      };
-
-      if (data.success) {
-        toast.success("Bots are joining the meeting", {
-          description: `${joinFormValues.quantity} bots are connecting to the meeting`,
-        });
-
-        simulateStatusUpdates(joinFormValues.quantity);
-        
-        loadZoomSDK().catch(error => {
-          console.error("Error loading Zoom SDK:", error);
-        });
-      }
-    } catch (error) {
-      toast.error("Failed to join meeting", {
-        description: "An error occurred while connecting to the server",
+    if (result.success) {
+      toast.success("Bots are joining the meeting", {
+        description: `${generatedBots.length} bots are connecting to the meeting`,
       });
-    } finally {
-      setIsJoining(false);
+
+      // Optionally update bot statuses in UI
+      setGeneratedBots((prevBots) =>
+        prevBots.map((bot) => ({ ...bot, status: "Connected" }))
+      );
+    } else {
+      throw new Error(result.error || "Unknown error");
     }
-  }, [generatedBots.length]);
+  } catch (error) {
+    toast.error("Failed to join meeting", {
+      description: "An error occurred while connecting bots",
+    });
+    console.error("Error in joinMeeting:", error);
+  } finally {
+    setIsJoining(false);
+  }
+}, [generatedBots]);
 
   async function loadZoomSDK() {
     if (!ZoomMtg) {

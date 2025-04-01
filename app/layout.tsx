@@ -16,7 +16,19 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+      <head>
+        {/* <link type="text/css" rel="stylesheet" href="https://source.zoom.us/{VERSION_NUMBER}/css/bootstrap.css" />
+        <link type="text/css" rel="stylesheet" href="https://source.zoom.us/{VERSION_NUMBER}/css/react-select.css" /> */}
+        {/* <link type="text/css" rel="stylesheet" href="https://source.zoom.us/3.12.0/css/bootstrap.css" />
+        <link type="text/css" rel="stylesheet" href="https://source.zoom.us/3.12.0/css/react-select.css" /> */}
+      </head>
       <body className={inter.className}>{children}</body>
+      {/* <script src="https://source.zoom.us/3.12.0/lib/vendor/react.min.js"></script>
+      <script src="https://source.zoom.us/3.12.0/lib/vendor/react-dom.min.js"></script>
+      <script src="https://source.zoom.us/3.12.0/lib/vendor/redux.min.js"></script>
+      <script src="https://source.zoom.us/3.12.0/lib/vendor/redux-thunk.min.js"></script>
+      <script src="https://source.zoom.us/3.12.0/lib/vendor/lodash.min.js"></script>
+      <script src="https://source.zoom.us/3.12.0/zoom-meeting-3.12.0.min.js"></script> */}
     </html>
   );
 }

@@ -25,3 +25,7 @@
 .App main button:hover {
     background-color: #2681F2;
 }
+
+.meetingSDKElement{
+    display: none;
+}
