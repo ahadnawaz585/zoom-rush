@@ -1,6 +1,6 @@
 'use client'; // Add this if using Next.js App Router with client-side features
 
-import Meeting from '@/components/zoom/page';
+import Meeting from '@/components/zoom/meeting';
 import React from 'react';
 import { useSearchParams } from 'next/navigation'; // For Next.js App Router
 
