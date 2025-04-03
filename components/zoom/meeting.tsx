@@ -3,8 +3,9 @@ import "./test.css";
 import { ZoomMtg } from "@zoom/meetingsdk";
 import ZoomMtgEmbedded from "@zoom/meetingsdk/embedded";
 import { useCallback, useState, ChangeEvent, useEffect } from "react";
+import { useSearchParams } from 'next/navigation'; // For Next.js App Router
 
-ZoomMtg.setZoomJSLib("https://source.zoom.us/2.18.2/lib", "/av"); // Updated to latest version
+ZoomMtg.setZoomJSLib("https://source.zoom.us/2.18.2/lib", "/av");
 ZoomMtg.preLoadWasm();
 ZoomMtg.prepareWebSDK();
 
@@ -36,10 +37,17 @@ interface MeetingProps {
   password: string;
 }
 
-function Meeting({ username, meetingId, password }: MeetingProps) {
+function Meeting() {
+
+      console.log("opened page");
+      const searchParams = useSearchParams(); 
+      const username = searchParams.get('username') || 'JohnDoe';
+      const meetingId = searchParams.get('meetingId') || '88696681332';
+      const password = searchParams.get('password') || '16HHw1';
+
   const [client, setClient] = useState<any>(null);
   const [isMeetingStarted, setIsMeetingStarted] = useState(false);
-  
+
   const [formData, setFormData] = useState<MeetingFormData>({
     sdkKey: process.env.NEXT_PUBLIC_ZOOM_MEETING_SDK_KEY || "",
     meetingNumber: meetingId || "",
@@ -49,7 +57,7 @@ function Meeting({ username, meetingId, password }: MeetingProps) {
     role: 0,
     registrantToken: "",
     zakToken: "",
-    leaveUrl: "http://localhost:3000",
+    leaveUrl: process.env.NEXT_PUBLIC_ZOOM_REDIRECT_URI || "http://localhost:3000",
   });
 
   useEffect(() => {
@@ -60,11 +68,11 @@ function Meeting({ username, meetingId, password }: MeetingProps) {
   }, []);
 
   useEffect(() => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       meetingNumber: meetingId,
       userName: username,
-      password: password
+      password: password,
     }));
   }, [meetingId, username, password]);
 
@@ -92,7 +100,7 @@ function Meeting({ username, meetingId, password }: MeetingProps) {
     try {
       const response = await fetch("/api/zoom", {
         method: "POST",
-        headers: { "Content-Type": "application/json" }, // Fixed typo
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           meetingNumber: formData.meetingNumber,
           role: formData.role,
@@ -125,7 +133,7 @@ function Meeting({ username, meetingId, password }: MeetingProps) {
     try {
       await client.init({
         debug: true,
-        zoomAppRoot: rootElement, // Fixed parameter name from zoomMeetingRoot
+        zoomAppRoot: rootElement,
         language: "en-US",
         leaveUrl: formData.leaveUrl,
         patchJsMedia: true,
@@ -142,49 +150,20 @@ function Meeting({ username, meetingId, password }: MeetingProps) {
         tk: formData.registrantToken,
         zak: formData.zakToken,
       });
-      
-      console.log("Joined successfully");
+
+      // Signal success for Playwright to detect
+      console.log(`Bot ${formData.userName} joined successfully`);
+      // Optionally update DOM for more reliable detection
+      rootElement.setAttribute("data-join-status", "success");
     } catch (error) {
       console.error("Error in init or join:", error);
+      throw error; // Re-throw to fail the Playwright wait
     }
   };
 
   return (
-    <div className="Meeting">
-      <main>
-        <h1>Zoom Meeting SDK Sample React</h1>
-
-        {(!meetingId || !username || !password) && (
-          <div style={{ marginBottom: "20px", padding: "20px", border: "1px solid #ccc" }}>
-            <h2>Enter Meeting Details</h2>
-            <div style={{ display: "flex", flexDirection: "column", gap: "10px", maxWidth: "300px" }}>
-              <label>
-                SDK Key:
-                <input type="text" name="sdkKey" value={formData.sdkKey} onChange={handleInputChange} />
-              </label>
-              <label>
-                Meeting Number:
-                <input type="text" name="meetingNumber" value={formData.meetingNumber} onChange={handleInputChange} />
-              </label>
-              <label>
-                User Name:
-                <input type="text" name="userName" value={formData.userName} onChange={handleInputChange} />
-              </label>
-              <label>
-                Password:
-                <input type="text" name="password" value={formData.password} onChange={handleInputChange} />
-              </label>
-            </div>
-            <button onClick={getSignature} disabled={!client}>
-              Join Meeting
-            </button>
-          </div>
-        )}
-
-        <div id="meetingSDKElement">
-          {/* Zoom Meeting SDK Component View Rendered Here */}
-        </div>
-      </main>
+    <div id="meetingSDKElement">
+      {/* Zoom Meeting SDK Component View Rendered Here */}
     </div>
   );
 }

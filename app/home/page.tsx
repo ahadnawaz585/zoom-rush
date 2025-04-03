@@ -306,6 +306,69 @@ const joinMeeting = useCallback(async (joinFormValues: FormValues) => {
   }
 }, [generatedBots]);
 
+
+// const joinMeeting = useCallback(async (joinFormValues: FormValues) => {
+//   if (generatedBots.length === 0) {
+//     toast.error("No bots generated");
+//     return;
+//   }
+
+//   setIsJoining(true);
+
+//   try {
+//     // Immediately open the first bot in a new tab
+//     // const firstBot = generatedBots[0];
+//     // const firstBotQueryParams = new URLSearchParams({
+//     //   username: firstBot.name,
+//     //   meetingId: joinFormValues.meetingId,
+//     //   password: joinFormValues.password,
+//     // }).toString();
+//     // const firstBotUrl = `/test?${firstBotQueryParams}`;
+//     // window.open(firstBotUrl, "_blank");
+
+//     // toast.success("Joining meeting with first bot", {
+//     //   description: `${firstBot.name} is connecting to the meeting`,
+//     // });
+
+//     // Wait 1 second, then start sending all bots one by one
+//     // await new Promise((resolve) => setTimeout(resolve, 1000)); // 1-second delay
+
+//     generatedBots.forEach((bot, index) => {
+//       // Stagger each bot with a delay (e.g., 500ms between each)
+//       setTimeout(() => {
+//         const queryParams = new URLSearchParams({
+//           username: bot.name,
+//           meetingId: joinFormValues.meetingId,
+//           password: joinFormValues.password,
+//         }).toString();
+//         const url = `/test?${queryParams}`;
+
+//         window.open(url, "_blank");
+
+//         // Optional: Update bot status in UI (if desired)
+//         setGeneratedBots((prevBots) =>
+//           prevBots.map((b) =>
+//             b.id === bot.id ? { ...b, status: "Connected" } : b
+//           )
+//         );
+
+//         if (index === generatedBots.length - 1) {
+//           toast.success("All bots have joined", {
+//             description: `${generatedBots.length} bots connected to the meeting`,
+//           });
+//         }
+//       }, index * 500); // 500ms delay between each bot
+//     });
+//   } catch (error) {
+//     toast.error("Failed to join meeting", {
+//       description: "An error occurred while opening the meeting pages",
+//     });
+//     console.error("Error in joinMeeting:", error);
+//   } finally {
+//     setIsJoining(false);
+//   }
+// }, [generatedBots]);
+
   async function loadZoomSDK() {
     if (!ZoomMtg) {
       try {

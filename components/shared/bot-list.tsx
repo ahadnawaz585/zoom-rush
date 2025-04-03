@@ -279,13 +279,13 @@ export default function BotList({ bots, loading }: BotListProps) {
                           <div className="flex items-center gap-2">
                             {bot.flag && (
                               <div className="relative w-5 h-3.5">
-                                <Image
+                                {/* <Image
                                   src={bot.flag}
                                   alt={bot.country || ''}
                                   width={20}
                                   height={14}
                                   className="object-cover rounded"
-                                />
+                                /> */}
                               </div>
                             )}
                             <span>{bot.country || bot.countryCode}</span>

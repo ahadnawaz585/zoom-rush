@@ -17,7 +17,6 @@ interface JoinRequest {
 }
 
 export async function POST(req: NextRequest) {
-  // Parse the request body
   const { bots, meetingId, password } = (await req.json()) as JoinRequest;
 
   if (!bots || bots.length === 0 || !meetingId || !password) {
@@ -25,42 +24,34 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    // Launch a headless browser
+    // Launch a single browser instance
     const browser = await chromium.launch({ headless: true });
+    const origin =  process.env.NEXT_PUBLIC_ZOOM_REDIRECT_URI ||req.headers.get("origin")  ;
 
-    // Process the first bot immediately
-    const firstBot = bots[0];
-    const firstContext = await browser.newContext();
-    const firstPage = await firstContext.newPage();
-    const origin = req.headers.get("origin") || "http://localhost:3000"; // Fallback for local dev
-    const firstUrl = `${origin}/test?username=${encodeURIComponent(
-      firstBot.name
-    )}&meetingId=${encodeURIComponent(meetingId)}&password=${encodeURIComponent(password)}`;
-    await firstPage.goto(firstUrl);
-    console.log(`First bot ${firstBot.name} navigated to ${firstUrl}`);
-
-    // Wait 1 second before processing the rest
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
-    // Process remaining bots in parallel
-    const botPromises = bots.map(async (bot) => {
+    // Process bots sequentially
+    for (const bot of bots) {
       const context = await browser.newContext(); // New context for isolation
       const page = await context.newPage();
-      const url = `${origin}/test?username=${encodeURIComponent(
+      const url = `${origin}/meeting?username=${encodeURIComponent(
         bot.name
       )}&meetingId=${encodeURIComponent(meetingId)}&password=${encodeURIComponent(password)}`;
-      
+
+      console.log(`Navigating bot ${bot.name} to ${url}`);
       await page.goto(url);
-      console.log(`Bot ${bot.name} navigated to ${url}`);
 
-      // Optionally wait for some action (e.g., Zoom SDK to load)
-      // await page.waitForTimeout(2000); // Adjust as needed
+      // Wait for the bot to successfully join the meeting
+      await page.waitForFunction(
+        () => console.log("Joined successfully") === undefined, // Check for success log
+        { timeout: 30000 } // Adjust timeout as needed (30 seconds)
+      );
 
-      await context.close(); // Clean up after each bot
-    });
-    
-    await Promise.all(botPromises);
-    await browser.close();
+      console.log(`Bot ${bot.name} successfully joined the meeting`);
+
+      // Keep the context open to maintain the tab; we'll close the browser later
+    }
+
+    // Optionally close the browser after all bots are done
+    // await browser.close();
 
     return NextResponse.json({ success: true, message: "All bots joined successfully" }, { status: 200 });
   } catch (error) {
