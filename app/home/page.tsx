@@ -532,24 +532,36 @@ const joinMeeting = useCallback(async (joinFormValues: FormValues) => {
         
         <div className="flex-grow overflow-auto p-4 sm:p-6 lg:p-8">
           <div className="max-w-1xl mx-auto flex flex-col h-full">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-grow">
-              <MeetingForm
-                onBotsGenerated={handleBotsGenerated}
-                onJoinMeeting={joinMeeting}
-                onScheduleMeeting={handleScheduleMeeting}
-                onFormChange={handleFormChange}
-                formValues={formValues}
-                isJoining={isJoining}
-                isLoading={isLoading}
-                hasGeneratedBots={generatedBots.length > 0}
-                countries={countries}
-              />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch h-full">
+  <div className="flex flex-col h-full">
+    <div className="flex flex-col flex-grow h-full bg-white dark:bg-gray-800 shadow rounded-xl p-4">
+      <MeetingForm
+        onBotsGenerated={handleBotsGenerated}
+        onJoinMeeting={joinMeeting}
+        onScheduleMeeting={handleScheduleMeeting}
+        onFormChange={handleFormChange}
+        formValues={formValues}
+        isJoining={isJoining}
+        isLoading={isLoading}
+        hasGeneratedBots={generatedBots.length > 0}
+        countries={countries}
+      />
+    </div>
+  </div>
 
-              <BotList 
-                bots={generatedBots} 
-                loading={isLoading || isGeneratingBots}
-              />
-            </div>
+  <div className="flex flex-col h-full">
+    <div className="flex flex-col flex-grow h-full bg-white dark:bg-gray-800 shadow rounded-xl p-4">
+      <BotList
+        bots={generatedBots}
+        loading={isLoading || isGeneratingBots}
+      />
+    </div>
+  </div>
+</div>
+
+
+  
+
 
             <UpcomingMeetings
               meetings={upcomingMeetings}

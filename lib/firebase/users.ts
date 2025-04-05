@@ -125,3 +125,6 @@ export const getAllUsers = async () => {
     ...doc.data()
   })) as (UserData & { id: string })[];
 };
+
+
+

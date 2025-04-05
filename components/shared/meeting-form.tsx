@@ -178,12 +178,13 @@ export default function MeetingForm({
     try {
       // Create sample data for the template using the data from the image
       const sampleData = [
-        { name: "ALI", country: "Pakistan", countryCode: "PK" },
-        { name: "AHMED", country: "Pakistan", countryCode: "PK" },
-        { name: "ABRAHAM", country: "Pakistan", countryCode: "PK" },
-        { name: "AKRAM", country: "Pakistan", countryCode: "PK" },
-        { name: "AURANGZAIB", country: "Pakistan", countryCode: "PK" }
+        { name: "RAHUL", country: "India", countryCode: "IN" },
+        { name: "AMIT", country: "India", countryCode: "IN" },
+        { name: "VIKRAM", country: "India", countryCode: "IN" },
+        { name: "ARJUN", country: "India", countryCode: "IN" },
+        { name: "ROHIT", country: "India", countryCode: "IN" }
       ];
+      
       
       // Create worksheet
       const ws = XLSX.utils.json_to_sheet(sampleData);
@@ -396,32 +397,33 @@ export default function MeetingForm({
   
   return (
     <Card className="bg-white dark:bg-gray-900 shadow-md flex flex-col h-full border dark:border-gray-800">
-      <CardHeader className="bg-[#F8F8F8] dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex-shrink-0">
-        <div className="flex justify-between items-center">
-          <CardTitle className="text-[#232333] dark:text-gray-100 text-lg font-medium">Meeting Configuration</CardTitle>
-          <div className="flex gap-2">
+      <CardHeader className="bg-[#F8F8F8] dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-3 sm:px-6 py-4 flex-shrink-0">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+          <CardTitle className="text-[#232333] dark:text-gray-100 text-lg font-medium mb-2 sm:mb-0">Meeting Configuration</CardTitle>
+          <div className="flex flex-wrap gap-2 w-full sm:w-auto">
             <Button
               type="button"
               variant={isScheduleMode ? "default" : "outline"}
-              className="h-8 text-xs"
+              className="h-8 text-xs flex-1 sm:flex-none"
               onClick={() => setIsScheduleMode(!isScheduleMode)}
             >
               <Calendar className="h-3.5 w-3.5 mr-1" />
               {isScheduleMode ? "Cancel Schedule" : "Schedule"}
-            </Button>   <Button
+            </Button>
+            <Button
               type="button"
               variant="outline"
-              className="h-8 text-xs border-gray-200 dark:border-gray-700 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+              className="h-8 text-xs border-gray-200 dark:border-gray-700 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 flex-1 sm:flex-none"
               onClick={downloadTemplateFile}
             >
               <Download className="h-3.5 w-3.5 mr-1" />
               Template
             </Button>
-            <label className="cursor-pointer">
+            <label className="cursor-pointer flex-1 sm:flex-none">
               <Button
                 type="button"
                 variant="outline"
-                className="h-8 text-xs border-gray-200 dark:border-gray-700 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                className="h-8 text-xs border-gray-200 dark:border-gray-700 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 w-full"
                 onClick={() => fileInputRef.current?.click()}
               >
                 <Upload className="h-3.5 w-3.5 mr-1" />
@@ -439,7 +441,7 @@ export default function MeetingForm({
         </div>
       </CardHeader>
       
-      <CardContent className="p-6 flex-grow overflow-y-auto">
+      <CardContent className="p-3 sm:p-6 flex-grow overflow-y-auto">
         <Form {...form}>
           <form onSubmit={handleSubmit} className="space-y-6 h-full flex flex-col">
             <div className="space-y-6 flex-grow">

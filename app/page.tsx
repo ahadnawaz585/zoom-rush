@@ -11,8 +11,6 @@ const generateRandomSession = () => {
   return Math.random().toString(36).substring(2) + Date.now().toString(36);
 };
 
-
-
 export default function Login() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -23,11 +21,23 @@ export default function Login() {
   const [darkMode, setDarkMode] = useState(false);
   const router = useRouter();
 
+
+
+
+
+  
   useEffect(() => {
+    const darkModeCookie = Cookies.get("darkMode");
     const savedTheme = localStorage.getItem('theme');
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     
-    if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
+    if (darkModeCookie === "true") {
+      setDarkMode(true);
+      document.documentElement.classList.add('dark');
+    } else if (darkModeCookie === "false") {
+      setDarkMode(false);
+      document.documentElement.classList.remove('dark');
+    } else if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
       setDarkMode(true);
       document.documentElement.classList.add('dark');
     }
@@ -102,13 +112,36 @@ export default function Login() {
         return;
       }
 
+      // Make sure role is properly converted to lowercase for consistency
+      const userRole = user.role ? user.role.toLowerCase() : "user";
+      
+      // Store user data with normalized role information
+      const userData = {
+        id: user.id,
+        username: user.username,
+        role: userRole, // Ensure role is normalized to lowercase
+        isAdmin: userRole === "admin", // Add explicit flag for admin status
+        // Add other necessary user data
+      };
+      
+      // Clear any existing user data before setting new data
+      localStorage.removeItem("userData");
+      
+      // Store user data in localStorage for persistence
+      localStorage.setItem("userData", JSON.stringify(userData));
+
+      // Clear existing cookies
+      Cookies.remove("session");
+      Cookies.remove("adminSession");
+      
+      // Set the session cookie
       Cookies.set("session", user.id, { 
         expires: 7,
         secure: true, 
         sameSite: 'strict' 
       });
 
-      if (user.role === 'admin') {
+      if (userRole === 'admin') {
         const adminSession = generateRandomSession();
         Cookies.set("adminSession", adminSession, { 
           expires: 7,
@@ -131,20 +164,21 @@ export default function Login() {
         localStorage.removeItem("rememberMe");
       }
 
-      router.push("/home");
+      // Add a small delay to ensure cookies and localStorage are set before navigation
+      setTimeout(() => {
+        router.push("/home");
+      }, 100);
     } catch (error) {
+      console.error("Error during login:", error);
       setError("An error occurred during login");
       setIsLoading(false);
     }
   };
 
-
   return (
-    
     <div className={`min-h-screen flex items-center justify-center p-4 transition-colors duration-300 ${darkMode ? 'bg-gradient-to-b from-gray-900 to-gray-800' : 'bg-gradient-to-b from-blue-50 to-gray-50'}`}>
       <div className={`w-full max-w-md rounded-xl shadow-lg p-8 border transition-colors duration-300 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-blue-100'}`}>
         {/* Theme toggle button */}
-
         <div className="absolute top-4 right-4">
           <button 
             onClick={toggleDarkMode}
@@ -228,9 +262,9 @@ export default function Login() {
                 type="password"
                 id="password"
                 className={`w-full pl-10 pr-3 py-2 border rounded-lg placeholder-gray-400 focus:outline-none focus:ring-2 transition duration-200
-                  ${fieldErrors.username ? 'border-red-500 ring-1 ring-red-500' : darkMode ? 'border-gray-600' : 'border-gray-300'}
+                  ${fieldErrors.password ? 'border-red-500 ring-1 ring-red-500' : darkMode ? 'border-gray-600' : 'border-gray-300'}
                   ${darkMode ? 'bg-gray-700 text-gray-100 placeholder-gray-500' : 'bg-gray-50 text-gray-900'}
-                  ${fieldErrors.username ? 'focus:ring-red-500' : 'focus:ring-blue-500'} 
+                  ${fieldErrors.password ? 'focus:ring-red-500' : 'focus:ring-blue-500'} 
                   focus:border-transparent`}
                 value={password}
                 onChange={(e) => {
