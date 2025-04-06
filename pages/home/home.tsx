@@ -19,7 +19,7 @@ import { generateBotNames } from "../../services/generateNames";
 import { format } from "util";
 import UpcomingMeetings from "@/components/shared/upcoming";
 import { getUserById } from "@/lib/firebase/users";
-import { savePreviousSchedule, Schedule } from "@/lib/firebase/schedule";
+import { savePreviousSchedule, Schedule, getPreviousSchedules } from "@/lib/firebase/schedule";
 
 // Defer Zoom SDK imports
 let ZoomMtg: any = null;
@@ -68,14 +68,16 @@ const DarkModeScript = () => {
   );
 };
 
- function Page() {
+function Page() {
   const [generatedBots, setGeneratedBots] = useState<Bot[]>([]);
   const [isJoining, setIsJoining] = useState(false);
   const [countries, setCountries] = useState<Country[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [userId,setUserId] = useState<string>('');
+  const [userId, setUserId] = useState<string>('');
   const [isGeneratingBots, setIsGeneratingBots] = useState(false);
   const [countryMap, setCountryMap] = useState<Record<string, Country>>({});
+  const [dashboardData, setDashboardData] = useState(previousSchedules);
+  const [previousScheduleData, setPreviousScheduleData] = useState<Schedule[]>([]);
   const [formValues, setFormValues] = useState<FormValues>({
     meetingId: "",
     password: "",
@@ -84,6 +86,30 @@ const DarkModeScript = () => {
     countryCode: "IN"
   });
   const router = useRouter();
+  
+  // Function to fetch latest schedules and update state
+  const refreshScheduleData = useCallback(async () => {
+    try {
+      const userId = Cookies.get('session');
+      if (!userId) return;
+      
+      // Fetch latest previous schedules from Firebase
+      const schedules = await getPreviousSchedules(userId);
+      setPreviousScheduleData(schedules);
+      
+      // Also update dashboard data
+      setDashboardData(schedules);
+    } catch (error) {
+      console.error("Failed to refresh schedule data:", error);
+    }
+  }, []);
+  
+  // Initial data fetch
+  useEffect(() => {
+    refreshScheduleData();
+    const userId = Cookies.get('session');
+    if (userId) setUserId(userId);
+  }, [refreshScheduleData]);
   
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
@@ -258,7 +284,6 @@ const DarkModeScript = () => {
     }
 }, [generateBotsForCountry, getCountryByCode]);
 
-
 const joinMeeting = useCallback(async (joinFormValues: FormValues) => {
   if (generatedBots.length === 0) {
     toast.error("No bots generated");
@@ -289,9 +314,9 @@ const joinMeeting = useCallback(async (joinFormValues: FormValues) => {
       });
       toast.error("You don't have permission to join meetings");
       setIsJoining(false);
-          Cookies.remove('session');
-          Cookies.remove('adminSession');
-          window.location.reload();
+      Cookies.remove('session');
+      Cookies.remove('adminSession');
+      window.location.reload();
       return;
     }
 
@@ -300,7 +325,7 @@ const joinMeeting = useCallback(async (joinFormValues: FormValues) => {
       bots: generatedBots,
       meetingId: joinFormValues.meetingId,
       password: joinFormValues.password,
-      duration:joinFormValues.duration
+      duration: joinFormValues.duration
     };
 
     const response = await fetch("/api/join-meeting", {
@@ -309,19 +334,24 @@ const joinMeeting = useCallback(async (joinFormValues: FormValues) => {
       body: JSON.stringify(requestBody),
     });
 
-  
+    // Create a schedule data object
     const scheduleData: Omit<Schedule, 'id' | 'createdAt'> = {
       meetingId: joinFormValues.meetingId,
       password: joinFormValues.password,
       quantity: generatedBots.length,
-      duration: joinFormValues.duration, // You might want to add duration tracking
-      countryCode: generatedBots[0]?.countryCode || '', // Using first bot's country code
+      duration: joinFormValues.duration,
+      countryCode: generatedBots[0]?.countryCode || '',
       status: 'completed',
       bots: generatedBots,
       userId: userId,
     };
 
-    savePreviousSchedule(scheduleData)
+    // Save the schedule to Firebase
+    await savePreviousSchedule(scheduleData);
+    
+    // Refresh dashboard and previous schedule data
+    await refreshScheduleData();
+
     if (!response.ok) {
       throw new Error("API request failed");
     }
@@ -347,70 +377,7 @@ const joinMeeting = useCallback(async (joinFormValues: FormValues) => {
   } finally {
     setIsJoining(false);
   }
-}, [generatedBots]);
-
-
-// const joinMeeting = useCallback(async (joinFormValues: FormValues) => {
-//   if (generatedBots.length === 0) {
-//     toast.error("No bots generated");
-//     return;
-//   }
-
-//   setIsJoining(true);
-
-//   try {
-//     // Immediately open the first bot in a new tab
-//     // const firstBot = generatedBots[0];
-//     // const firstBotQueryParams = new URLSearchParams({
-//     //   username: firstBot.name,
-//     //   meetingId: joinFormValues.meetingId,
-//     //   password: joinFormValues.password,
-//     // }).toString();
-//     // const firstBotUrl = `/test?${firstBotQueryParams}`;
-//     // window.open(firstBotUrl, "_blank");
-
-//     // toast.success("Joining meeting with first bot", {
-//     //   description: `${firstBot.name} is connecting to the meeting`,
-//     // });
-
-//     // Wait 1 second, then start sending all bots one by one
-//     // await new Promise((resolve) => setTimeout(resolve, 1000)); // 1-second delay
-
-//     generatedBots.forEach((bot, index) => {
-//       // Stagger each bot with a delay (e.g., 500ms between each)
-//       setTimeout(() => {
-//         const queryParams = new URLSearchParams({
-//           username: bot.name,
-//           meetingId: joinFormValues.meetingId,
-//           password: joinFormValues.password,
-//         }).toString();
-//         const url = `/test?${queryParams}`;
-
-//         window.open(url, "_blank");
-
-//         // Optional: Update bot status in UI (if desired)
-//         setGeneratedBots((prevBots) =>
-//           prevBots.map((b) =>
-//             b.id === bot.id ? { ...b, status: "Connected" } : b
-//           )
-//         );
-
-//         if (index === generatedBots.length - 1) {
-//           toast.success("All bots have joined", {
-//             description: `${generatedBots.length} bots connected to the meeting`,
-//           });
-//         }
-//       }, index * 500); // 500ms delay between each bot
-//     });
-//   } catch (error) {
-//     toast.error("Failed to join meeting", {
-//       description: "An error occurred while opening the meeting pages",
-//     });
-//     console.error("Error in joinMeeting:", error);
-//   } finally {
-//     setIsJoining(false);
-//   }
-// }, [generatedBots]);
+}, [generatedBots, refreshScheduleData]);
 
   async function loadZoomSDK() {
     if (!ZoomMtg) {
@@ -452,10 +419,10 @@ const joinMeeting = useCallback(async (joinFormValues: FormValues) => {
     
     setTimeout(() => {
       console.log("Meeting saved to previous schedules");
+      refreshScheduleData(); // Refresh data after status updates
     }, 4500);
   }
 
- 
   const handleRejoin = useCallback((scheduleData: FormValues) => {
     // Update form values with the schedule data
     setFormValues(scheduleData);
@@ -467,8 +434,6 @@ const joinMeeting = useCallback(async (joinFormValues: FormValues) => {
       description: "Form has been filled with the saved meeting details",
     });
   }, [handleBotsGenerated]);
-
-
 
   const [upcomingMeetings, setUpcomingMeetings] = useState<Array<{
     id: string;
@@ -545,7 +510,7 @@ const joinMeeting = useCallback(async (joinFormValues: FormValues) => {
     toast.success("Meeting deleted successfully");
   }, []);
 
-  const handleJoinScheduledMeeting = useCallback((meeting: any) => {
+  const handleJoinScheduledMeeting = useCallback(async (meeting: any) => {
     // Update form values with the scheduled meeting details
     console.log(meeting);
     setFormValues({
@@ -566,73 +531,69 @@ const joinMeeting = useCallback(async (joinFormValues: FormValues) => {
     toast.success("Joining scheduled meeting", {
       description: `Connecting ${meeting.quantity} bots to the meeting`
     });
-  }, [countries]);
+    
+    // After joining meeting, refresh the dashboard and previous schedules
+    await refreshScheduleData();
+  }, [countries, refreshScheduleData]);
 
   return (
     <>
       <DarkModeScript />
-      
-      <div className="h-screen flex flex-col bg-[#F5F8FC] dark:bg-gradient-to-b dark:from-gray-900 dark:to-gray-800 transition-colors duration-300">
+      <div className="min-h-screen flex flex-col bg-[#F5F8FC] dark:bg-gradient-to-b dark:from-gray-900 dark:to-gray-800 transition-colors duration-300">
         <Navbar />
         
-        <div className="flex-grow overflow-auto p-4 sm:p-6 lg:p-8">
-          <div className="max-w-1xl mx-auto flex flex-col h-full">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch h-full">
-  <div className="flex flex-col h-full">
-    <div className="flex flex-col flex-grow h-full bg-white dark:bg-gray-800 shadow rounded-xl p-4">
-      <MeetingForm
-        onBotsGenerated={handleBotsGenerated}
-        onJoinMeeting={joinMeeting}
-        onScheduleMeeting={handleScheduleMeeting}
-        onFormChange={handleFormChange}
-        formValues={formValues}
-        isJoining={isJoining}
-        isLoading={isLoading}
-        hasGeneratedBots={generatedBots.length > 0}
-        countries={countries}
-      />
-    </div>
-  </div>
-
-  <div className="flex flex-col h-full">
-    <div className="flex flex-col flex-grow h-full bg-white dark:bg-gray-800 shadow rounded-xl p-4">
-      <BotList
-        bots={generatedBots}
-        loading={isLoading || isGeneratingBots}
-      />
-    </div>
-  </div>
-</div>
-
-
-  
-<UpcomingMeetings
-userId={userId}
-countries={countries.reduce((acc, country) => ({
-  ...acc,
-  [country.code]: country.name
-}), {})}
-onJoinMeeting={handleJoinScheduledMeeting}
-
-/>
-
-            {/* <UpcomingMeetings
-              meetings={upcomingMeetings}
-              onJoinMeeting={handleJoinScheduledMeeting}
-              onCancelMeeting={handleCancelMeeting}
-              onDeleteMeeting={handleDeleteMeeting}
-              countries={countries.reduce((acc, country) => ({
-                ...acc,
-                [country.code]: country.name
-              }), {})}
-            /> */}
-
-            <div className="mt-6">
-              <DashboardGraphs schedules={previousSchedules} />
+        <div className="flex-grow overflow-auto p-3 sm:p-4 md:p-6 lg:p-8">
+          <div className="max-w-7xl mx-auto flex flex-col h-full">
+            {/* Two-column layout that stacks on mobile */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 items-stretch">
+              <div className="flex flex-col">
+                <div className="flex flex-col flex-grow bg-white dark:bg-gray-800 shadow rounded-xl p-3 sm:p-4">
+                  <MeetingForm
+                    onBotsGenerated={handleBotsGenerated}
+                    onJoinMeeting={joinMeeting}
+                    onScheduleMeeting={handleScheduleMeeting}
+                    onFormChange={handleFormChange}
+                    formValues={formValues}
+                    isJoining={isJoining}
+                    isLoading={isLoading}
+                    hasGeneratedBots={generatedBots.length > 0}
+                    countries={countries}
+                  />
+                </div>
+              </div>
+              
+              <div className="flex flex-col mt-4 lg:mt-0">
+                <div className="flex flex-col flex-grow bg-white dark:bg-gray-800 shadow rounded-xl p-3 sm:p-4">
+                  <BotList
+                    bots={generatedBots}
+                    loading={isLoading || isGeneratingBots}
+                  />
+                </div>
+              </div>
             </div>
-
-            <div className="mt-6">
-              <PreviousSchedule onRejoin={handleRejoin} />
+            
+            {/* Full-width sections */}
+            <div className="mt-4 md:mt-6">
+              <UpcomingMeetings
+                userId={userId}
+                countries={countries.reduce((acc, country) => ({
+                  ...acc,
+                  [country.code]: country.name
+                }), {})}
+                onJoinMeeting={handleJoinScheduledMeeting}
+              />
+            </div>
+            
+            <div className="mt-4 md:mt-6">
+              <DashboardGraphs schedules={dashboardData} />
+            </div>
+            
+            <div className="mt-4 md:mt-6">
+              <PreviousSchedule
+                onRejoin={handleRejoin}
+                schedules={previousScheduleData}
+                refreshData={refreshScheduleData}
+              />
             </div>
           </div>
         </div>
@@ -640,6 +601,5 @@ onJoinMeeting={handleJoinScheduledMeeting}
     </>
   );
 }
-
 
 export const HomePage = withUserEnabled(Page);
