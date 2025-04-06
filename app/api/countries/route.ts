@@ -1,5 +1,5 @@
 // app/api/countries/route.ts
-import { getCountries, getCountryByCode } from '@/app/services/countryApi';
+import { getCountries, getCountryByCode } from '@/services/countryApi';
 import { NextResponse } from 'next/server';
 
 

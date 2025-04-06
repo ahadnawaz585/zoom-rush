@@ -10,6 +10,7 @@ export const fireStorage = getStorage(app);
 
 export const firestoreCollections = {
   usersCol: collection(firestore, "users"),
+  previousSchedules :collection(firestore,"previousSchedules"),
 };
 
 ///

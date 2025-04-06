@@ -21,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select";
-import { Country } from "@/app/services/countryApi";
+import { Country } from "@/services/countryApi";
 import { useEffect, useRef } from "react";
 import { toast } from "@/hooks/use-toast";
 import * as XLSX from 'xlsx';

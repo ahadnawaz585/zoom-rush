@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Calendar, Clock, Users, Globe, Play, X, Trash2, UserCircle2 } from "lucide-react";
 import {
   Table,
@@ -20,48 +20,80 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-
-interface Bot {
-  id: number;
-  name: string;
-  status: string;
-  countryCode: string;
-}
-
-interface UpcomingMeeting {
-  id: string;
-  meetingId: string;
-  password: string;
-  quantity: number;
-  duration: number;
-  countryCode: string;
-  scheduledDate: string;
-  scheduledTime: string;
-  status: 'scheduled' | 'cancelled';
-  bots: Bot[];
-}
+import { 
+  getUpcomingMeetings, 
+  updateUpcomingMeeting, 
+  deleteUpcomingMeeting,
+  Schedule 
+} from '@/lib/firebase/schedule';
 
 interface UpcomingMeetingsProps {
-  meetings: UpcomingMeeting[];
-  onJoinMeeting: (meeting: UpcomingMeeting) => void;
-  onCancelMeeting: (meetingId: string) => void;
-  onDeleteMeeting: (meetingId: string) => void;
+  userId: string; // Add userId to fetch user-specific meetings
   countries: Record<string, string>;
+  onJoinMeeting: (meeting: Schedule) => void;
 }
 
 export default function UpcomingMeetings({
-  meetings,
+  userId,
+  countries,
   onJoinMeeting,
-  onCancelMeeting,
-  onDeleteMeeting,
-  countries
 }: UpcomingMeetingsProps) {
-  const isScheduledTime = (date: string, time: string) => {
+  const [meetings, setMeetings] = useState<Schedule[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch upcoming meetings on component mount
+  useEffect(() => {
+    const fetchMeetings = async () => {
+      try {
+        const upcomingMeetings = await getUpcomingMeetings(userId);
+        setMeetings(upcomingMeetings);
+      } catch (error) {
+        console.error('Failed to fetch meetings:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchMeetings();
+  }, [userId]);
+
+  const isScheduledTime = (date: string | undefined, time: string | undefined) => {
+    if (!date || !time) return false;
     const scheduledDateTime = new Date(`${date}T${time}`);
     const now = new Date();
     const timeDiff = scheduledDateTime.getTime() - now.getTime();
-    return timeDiff >= -300000 && timeDiff <= 300000;
+    return timeDiff >= -300000 && timeDiff <= 300000; // 5-minute window
   };
+
+  const handleCancelMeeting = async (meetingId: string) => {
+    try {
+      await updateUpcomingMeeting(meetingId, { status: 'cancelled' });
+      setMeetings(meetings.map(meeting => 
+        meeting.id === meetingId ? { ...meeting, status: 'cancelled' } : meeting
+      ));
+    } catch (error) {
+      console.error('Failed to cancel meeting:', error);
+    }
+  };
+
+  const handleDeleteMeeting = async (meetingId: string) => {
+    try {
+      await deleteUpcomingMeeting(meetingId);
+      setMeetings(meetings.filter(meeting => meeting.id !== meetingId));
+    } catch (error) {
+      console.error('Failed to delete meeting:', error);
+    }
+  };
+
+  if (loading) {
+    return (
+      <Card className="mt-6">
+        <CardContent>
+          <div className="text-center py-8">Loading meetings...</div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="mt-6 dark:bg-gray-900 border dark:border-gray-800">
@@ -98,7 +130,9 @@ export default function UpcomingMeetings({
                   <TableCell className="text-gray-800 dark:text-gray-200">
                     <div className="flex items-center gap-2">
                       <Calendar className="h-4 w-4 text-gray-500 dark:text-gray-400" />
-                      {format(new Date(`${meeting.scheduledDate}T${meeting.scheduledTime}`), 'MMM d, yyyy HH:mm')}
+                      {meeting.scheduledDate && meeting.scheduledTime 
+                        ? format(new Date(`${meeting.scheduledDate}T${meeting.scheduledTime}`), 'MMM d, yyyy HH:mm')
+                        : 'Not scheduled'}
                     </div>
                   </TableCell>
                   <TableCell className="text-gray-800 dark:text-gray-200">
@@ -158,7 +192,7 @@ export default function UpcomingMeetings({
                           : 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300'
                       }`}
                     >
-                      {meeting.status === 'cancelled' ? 'Cancelled' : 'Scheduled'}
+                      {meeting.status.charAt(0).toUpperCase() + meeting.status.slice(1)}
                     </span>
                   </TableCell>
                   <TableCell>
@@ -181,7 +215,7 @@ export default function UpcomingMeetings({
                           size="sm"
                           variant="outline"
                           className="h-8 px-3 text-xs text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
-                          onClick={() => onCancelMeeting(meeting.id)}
+                          onClick={() => handleCancelMeeting(meeting.id)}
                         >
                           <X className="h-3 w-3 mr-1" />
                           Cancel
@@ -191,7 +225,7 @@ export default function UpcomingMeetings({
                         size="sm"
                         variant="outline"
                         className="h-8 px-3 text-xs text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
-                        onClick={() => onDeleteMeeting(meeting.id)}
+                        onClick={() => handleDeleteMeeting(meeting.id)}
                       >
                         <Trash2 className="h-3 w-3 mr-1" />
                         Delete

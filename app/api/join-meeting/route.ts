@@ -18,6 +18,7 @@ interface JoinRequest {
   meetingId: string;
   password: string;
   botCount?: number;
+  duration?:number;
 }
 
 interface Task {
@@ -37,12 +38,19 @@ interface WorkerResult {
 }
 
 const signatureCache = new Map<string, { signature: string; expires: number }>();
-const generateSignature = (meetingNumber: string, role: number = 0): string => {
+const generateSignature = (
+  meetingNumber: string,
+  role: number = 0,
+  duration: number = 60 
+): string => {
   console.log(`[${new Date().toISOString()}] Generating signature for meeting ${meetingNumber}`);
-  const cacheKey = `${meetingNumber}-${role}`;
-  const cached = signatureCache.get(cacheKey);
+  const cacheKey = `${meetingNumber}-${role}-${duration}`;
   const now = Date.now() / 1000;
 
+  const iat = Math.round(now) - 30;
+  const exp = iat + duration * 60; // duration in minutes -> seconds
+
+  const cached = signatureCache.get(cacheKey);
   if (cached && cached.expires > now) return cached.signature;
 
   const { NEXT_PUBLIC_ZOOM_MEETING_SDK_KEY, NEXT_PUBLIC_ZOOM_MEETING_SDK_SECRET } = process.env;
@@ -50,9 +58,6 @@ const generateSignature = (meetingNumber: string, role: number = 0): string => {
     console.error(`[${new Date().toISOString()}] Zoom SDK credentials missing`);
     throw new Error('Zoom SDK credentials not configured');
   }
-
-  const iat = Math.round(now) - 30;
-  const exp = iat + 3600;
 
   const header = { alg: 'HS256', typ: 'JWT' };
   const payload = {
@@ -67,9 +72,10 @@ const generateSignature = (meetingNumber: string, role: number = 0): string => {
 
   const signature = KJUR.jws.JWS.sign('HS256', JSON.stringify(header), JSON.stringify(payload), NEXT_PUBLIC_ZOOM_MEETING_SDK_SECRET);
   signatureCache.set(cacheKey, { signature, expires: exp });
-  console.log(`[${new Date().toISOString()}] New signature generated for ${meetingNumber}`);
+  console.log(`[${new Date().toISOString()}] New signature generated for ${meetingNumber} with expiry in ${duration} minutes`);
   return signature;
 };
+
 
 const generateBots = (count: number, existingBots: Bot[]): Bot[] => {
   console.log(`[${new Date().toISOString()}] Generating ${count} new bots`);
@@ -113,7 +119,7 @@ const workerScript = `
         console.log(\`[${new Date().toISOString()}] \${browserType} attempting to join with bot \${bot.name}\`);
         
         const url = \`\${origin}/meeting?username=\${encodeURIComponent(bot.name)}&meetingId=\${encodeURIComponent(meetingId)}&password=\${encodeURIComponent(password)}&signature=\${encodeURIComponent(signature)}\`;
-        
+        console.log(url);
         try {
           const response = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15000 });
           if (!response || response.status() >= 400) throw new Error('Navigation failed: Status ' + response?.status());
@@ -161,7 +167,7 @@ const workerScript = `
 export async function POST(req: NextRequest): Promise<NextResponse> {
   console.log(`[${new Date().toISOString()}] Received join meeting request`);
   const body = (await req.json()) as JoinRequest;
-  let { bots, meetingId, password, botCount = 0 } = body;
+  let { bots, meetingId, password, botCount = 0,duration} = body;
 
   if (!meetingId || !password) {
     console.error(`[${new Date().toISOString()}] Missing required fields`);
@@ -178,7 +184,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const origin = process.env.NEXT_PUBLIC_ZOOM_REDIRECT_URI || req.headers.get("origin") || "";
   console.log(`[${new Date().toISOString()}] Using origin: ${origin}`);
-  const signature = generateSignature(meetingId);
+  const signature = generateSignature(meetingId, 0, duration);
 
   const browserTypes: ('chromium' | 'firefox' | 'webkit')[] = ['chromium', 'firefox', 'webkit'];
   const MIN_BOTS_PER_BROWSER = 2; // Reduced for testing
