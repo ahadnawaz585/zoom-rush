@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { chromium, firefox, webkit } from "playwright";
+import { chromium, firefox } from "playwright"; // Removed webkit
 import { Worker } from "worker_threads";
 import { KJUR } from 'jsrsasign';
 import { setPriority } from 'os';
@@ -18,7 +18,7 @@ interface JoinRequest {
   meetingId: string;
   password: string;
   botCount?: number;
-  duration?:number;
+  duration?: number;
 }
 
 interface Task {
@@ -27,14 +27,14 @@ interface Task {
   password: string;
   origin: string;
   signature: string;
-  browserType: 'chromium' | 'firefox' | 'webkit'; // Add 'opera' if integrating
+  browserType: 'chromium' | 'firefox' | 'chromium2';
 }
 
 interface WorkerResult {
   success: boolean;
   botId: number;
   error?: string;
-  browser: 'chromium' | 'firefox' | 'webkit'; // Add 'opera' if integrating
+  browser: 'chromium' | 'firefox' | 'chromium2';
 }
 
 const signatureCache = new Map<string, { signature: string; expires: number }>();
@@ -48,7 +48,7 @@ const generateSignature = (
   const now = Date.now() / 1000;
 
   const iat = Math.round(now) - 30;
-  const exp = iat + duration * 60; // duration in minutes -> seconds
+  const exp = iat + duration * 60;
 
   const cached = signatureCache.get(cacheKey);
   if (cached && cached.expires > now) return cached.signature;
@@ -76,7 +76,6 @@ const generateSignature = (
   return signature;
 };
 
-
 const generateBots = (count: number, existingBots: Bot[]): Bot[] => {
   console.log(`[${new Date().toISOString()}] Generating ${count} new bots`);
   const newBots: Bot[] = [];
@@ -91,13 +90,17 @@ const generateBots = (count: number, existingBots: Bot[]): Bot[] => {
 
 const workerScript = `
   const { parentPort, workerData } = require('worker_threads');
-  const { chromium, firefox, webkit } = require('playwright');
+  const { chromium, firefox } = require('playwright');
   const { setPriority } = require('os');
 
-  const browserEngines = { chromium, firefox, webkit };
+  const browserEngines = { 
+    chromium, 
+    firefox, 
+    chromium2: chromium 
+  };
 
   const joinMeetingPair = async ({ botPair, meetingId, password, origin, signature, browserType }) => {
-    setPriority(19); // High priority (19 on Unix-like, use -20 for Windows)
+    setPriority(19);
     console.log(\`[${new Date().toISOString()}] Worker starting for bots \${botPair.map(b => b.name).join(', ')} with \${browserType}\`);
     const browserEngine = browserEngines[browserType];
     let browser;
@@ -105,8 +108,8 @@ const workerScript = `
     try {
       const context = await browserEngine.launchPersistentContext('', { 
         headless: true, 
-        args: browserType === 'chromium' ? ['--no-sandbox', '--disable-setuid-sandbox'] : [],
-        timeout: 15000 // Increased timeout
+        args: browserType.includes('chromium') ? ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu'] : [],
+        timeout: 10000
       });
       browser = context.browser();
       console.log(\`[${new Date().toISOString()}] \${browserType} launched for bots \${botPair.map(b => b.name).join(', ')}\`);
@@ -119,14 +122,14 @@ const workerScript = `
         console.log(\`[${new Date().toISOString()}] \${browserType} attempting to join with bot \${bot.name}\`);
         
         const url = \`\${origin}/meeting?username=\${encodeURIComponent(bot.name)}&meetingId=\${encodeURIComponent(meetingId)}&password=\${encodeURIComponent(password)}&signature=\${encodeURIComponent(signature)}\`;
-        console.log(url);
+        
         try {
-          const response = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15000 });
+          const response = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 10000 });
           if (!response || response.status() >= 400) throw new Error('Navigation failed: Status ' + response?.status());
 
           await Promise.race([
-            page.waitForSelector("#meeting-joined-indicator", { timeout: 20000 }),
-            page.waitForSelector(".join-error", { timeout: 20000 }).then(() => {
+            page.waitForSelector("#meeting-joined-indicator", { timeout: 15000 }),
+            page.waitForSelector(".join-error", { timeout: 15000 }).then(() => {
               throw new Error('Meeting join error detected');
             })
           ]);
@@ -167,7 +170,7 @@ const workerScript = `
 export async function POST(req: NextRequest): Promise<NextResponse> {
   console.log(`[${new Date().toISOString()}] Received join meeting request`);
   const body = (await req.json()) as JoinRequest;
-  let { bots, meetingId, password, botCount = 0,duration} = body;
+  let { bots, meetingId, password, botCount = 0, duration } = body;
 
   if (!meetingId || !password) {
     console.error(`[${new Date().toISOString()}] Missing required fields`);
@@ -186,74 +189,64 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   console.log(`[${new Date().toISOString()}] Using origin: ${origin}`);
   const signature = generateSignature(meetingId, 0, duration);
 
-  const browserTypes: ('chromium' | 'firefox' | 'webkit')[] = ['chromium', 'firefox', 'webkit'];
-  const MIN_BOTS_PER_BROWSER = 2; // Reduced for testing
+  const browserTypes: ('chromium' | 'firefox' | 'chromium2')[] = ['chromium', 'firefox', 'chromium2'];
+  const BOTS_PER_TASK = 4; // Increased to process more bots per worker
   const totalBots = bots.length;
-  const botsPerBrowser = Math.max(MIN_BOTS_PER_BROWSER, Math.floor(totalBots / browserTypes.length));
-  const botPairsByBrowser: { [key: string]: Bot[][] } = { chromium: [], firefox: [], webkit: [] };
+  const tasks: Task[] = [];
+  const botPairsByBrowser: { [key: string]: Bot[][] } = { chromium: [], firefox: [], chromium2: [] };
 
+  // Distribute bots across browsers
   const shuffledBots = [...bots].sort(() => Math.random() - 0.5);
   let botIndex = 0;
   for (const browser of browserTypes) {
-    const botsForThisBrowser = shuffledBots.slice(botIndex, botIndex + botsPerBrowser);
-    botIndex += botsPerBrowser;
-    for (let i = 0; i < botsForThisBrowser.length; i += 2) {
-      botPairsByBrowser[browser].push(botsForThisBrowser.slice(i, i + 2));
+    const botsForThisBrowser = shuffledBots.slice(botIndex, botIndex + Math.ceil(totalBots / browserTypes.length));
+    botIndex += Math.ceil(totalBots / browserTypes.length);
+    for (let i = 0; i < botsForThisBrowser.length; i += BOTS_PER_TASK) {
+      const botPair = botsForThisBrowser.slice(i, i + BOTS_PER_TASK);
+      if (botPair.length > 0) {
+        botPairsByBrowser[browser].push(botPair);
+        tasks.push({
+          botPair,
+          meetingId,
+          password,
+          origin,
+          signature,
+          browserType: browser,
+        });
+      }
     }
   }
 
-  const tasks: Task[] = [];
-  for (const browser of browserTypes) {
-    botPairsByBrowser[browser].forEach(botPair => {
-      tasks.push({
-        botPair,
-        meetingId,
-        password,
-        origin,
-        signature,
-        browserType: browser,
-      });
-    });
-  }
-
-  console.log(`[${new Date().toISOString()}] Created ${tasks.length} bot pairs: ` +
+  console.log(`[${new Date().toISOString()}] Created ${tasks.length} tasks: ` +
     `Chromium: ${botPairsByBrowser.chromium.length} (${botPairsByBrowser.chromium.flat().length} bots), ` +
     `Firefox: ${botPairsByBrowser.firefox.length} (${botPairsByBrowser.firefox.flat().length} bots), ` +
-    `Webkit: ${botPairsByBrowser.webkit.length} (${botPairsByBrowser.webkit.flat().length} bots)`);
-
-  console.log(`[${new Date().toISOString()}] Starting execution of ${tasks.length} tasks`);
-
-  const MAX_CONCURRENT_WORKERS = 3; // Reduced for testing
-  const activeWorkers = new Map<string, Worker>();
+    `Chromium2: ${botPairsByBrowser.chromium2.length} (${botPairsByBrowser.chromium2.flat().length} bots)`);
 
   const executeTask = async (task: Task): Promise<WorkerResult[]> => {
     const taskId = `${task.browserType}-${task.botPair.map(b => b.id).join('-')}`;
-    console.log(`[${new Date().toISOString()}] Queuing task ${taskId} with ${task.browserType}`);
+    console.log(`[${new Date().toISOString()}] Starting task ${taskId} with ${task.browserType}`);
+    
     return new Promise((resolve) => {
       const worker = new Worker(workerScript, { 
         eval: true,
         workerData: task,
         resourceLimits: {
-          maxOldGenerationSizeMb: 300,
-          maxYoungGenerationSizeMb: 150,
+          maxOldGenerationSizeMb: 400, // Increased memory limits
+          maxYoungGenerationSizeMb: 200,
         }
       });
 
-      activeWorkers.set(taskId, worker);
-      console.log(`[${new Date().toISOString()}] Active workers: ${activeWorkers.size}`);
       let timeoutId: NodeJS.Timeout;
 
       worker.on('message', (result: WorkerResult[]) => {
         clearTimeout(timeoutId);
-        activeWorkers.delete(taskId);
-        console.log(`[${new Date().toISOString()}] Worker completed for ${task.browserType} bots ${task.botPair.map(b => b.name).join(', ')}`);
+        console.log(`[${new Date().toISOString()}] Task completed for ${task.browserType} bots ${task.botPair.map(b => b.name).join(', ')}`);
         resolve(result);
       });
 
       worker.on('error', (error) => {
         clearTimeout(timeoutId);
-        activeWorkers.delete(taskId);
-        console.error(`[${new Date().toISOString()}] Worker error for ${task.browserType} bots ${task.botPair.map(b => b.name).join(', ')}: ${error.stack}`);
+        console.error(`[${new Date().toISOString()}] Worker error for ${task.browserType}: ${error.stack}`);
         resolve(task.botPair.map(bot => ({
           success: false,
           botId: bot.id,
@@ -265,8 +258,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       worker.on('exit', (code) => {
         if (code !== 0) {
           clearTimeout(timeoutId);
-          activeWorkers.delete(taskId);
-          console.error(`[${new Date().toISOString()}] Worker exited with code ${code} for ${task.browserType} bots ${task.botPair.map(b => b.name).join(', ')}`);
+          console.error(`[${new Date().toISOString()}] Worker exited with code ${code} for ${task.browserType}`);
           resolve(task.botPair.map(bot => ({
             success: false,
             botId: bot.id,
@@ -278,8 +270,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
       timeoutId = setTimeout(() => {
         worker.terminate().then(() => {
-          activeWorkers.delete(taskId);
-          console.warn(`[${new Date().toISOString()}] Worker timeout for ${task.browserType} bots ${task.botPair.map(b => b.name).join(', ')}`);
+          console.warn(`[${new Date().toISOString()}] Worker timeout for ${task.browserType}`);
           resolve(task.botPair.map(bot => ({
             success: false,
             botId: bot.id,
@@ -287,33 +278,25 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
             browser: task.browserType
           })));
         });
-      }, 60000); // Increased timeout
+      }, 45000); // Reduced timeout for faster failure detection
     });
   };
 
-  const runTasksWithHighConcurrency = async () => {
-    const results: WorkerResult[] = [];
-    const queue = [...tasks];
-
+  const runTasksInParallel = async () => {
     try {
-      setPriority(19); // High priority (19 on Unix-like, use -20 for Windows)
+      setPriority(19);
       console.log(`[${new Date().toISOString()}] Set main process to high priority`);
     } catch (error) {
       console.warn(`[${new Date().toISOString()}] Failed to set process priority: ${error}`);
     }
 
-    while (queue.length > 0) {
-      const batch = queue.splice(0, MAX_CONCURRENT_WORKERS);
-      console.log(`[${new Date().toISOString()}] Processing batch of ${batch.length} tasks`);
-      const batchResults = await Promise.all(batch.map(task => executeTask(task)));
-      results.push(...batchResults.flat());
-    }
-
-    return results;
+    console.log(`[${new Date().toISOString()}] Launching all ${tasks.length} tasks in parallel`);
+    const results = await Promise.all(tasks.map(task => executeTask(task)));
+    return results.flat();
   };
 
   try {
-    const results = await runTasksWithHighConcurrency();
+    const results = await runTasksInParallel();
     const successes = results.filter(r => r.success).length;
     const failures = results.filter(r => !r.success);
 
@@ -330,9 +313,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           total: results.filter(r => r.browser === 'firefox').length,
           successes: results.filter(r => r.browser === 'firefox' && r.success).length
         },
-        webkit: {
-          total: results.filter(r => r.browser === 'webkit').length,
-          successes: results.filter(r => r.browser === 'webkit' && r.success).length
+        chromium2: {
+          total: results.filter(r => r.browser === 'chromium2').length,
+          successes: results.filter(r => r.browser === 'chromium2' && r.success).length
         }
       }
     };
