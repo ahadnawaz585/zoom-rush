@@ -1,16 +1,17 @@
-// lib/schedules.ts
 import { collection, addDoc, getDocs, updateDoc, deleteDoc, doc, query, where, serverTimestamp, getDoc } from 'firebase/firestore';
 import { firestore } from '@/lib/firebase'; // Assuming this is where your Firestore instance is initialized
 
+// Define Bot interface
 export interface Bot {
-  id: number;
+  id: string; // Changed from number to string to match MeetingForm generation
   name: string;
-  status: string;
   countryCode: string;
   country?: string;
+  status?: string; // Made optional as it's not always used
   flag?: string;
 }
 
+// Define Schedule interface matching MeetingForm and UpcomingMeetings
 export interface Schedule {
   id: string;
   meetingId: string;
@@ -21,11 +22,12 @@ export interface Schedule {
   scheduledDate?: string;
   scheduledTime?: string;
   status: 'scheduled' | 'cancelled' | 'completed';
-  bots: any[];
+  bots: Bot[];
   userId: string;
-  createdAt: any; // Using any to match serverTimestamp type compatibility
+  createdAt: any; // Compatible with serverTimestamp
+  updatedAt?: any; // Optional field for updates
 }
-  
+
 // Collections
 export const previousSchedulesCollection = collection(firestore, 'previousSchedules');
 export const upcomingMeetingsCollection = collection(firestore, 'upcomingMeetings');
@@ -44,7 +46,7 @@ export const savePreviousSchedule = async (schedule: Omit<Schedule, 'id' | 'crea
   }
 };
 
-export const getPreviousSchedules = async (userId: string) => {
+export const getPreviousSchedules = async (userId: string): Promise<Schedule[]> => {
   try {
     const q = query(
       previousSchedulesCollection,
@@ -62,7 +64,7 @@ export const getPreviousSchedules = async (userId: string) => {
 };
 
 // Upcoming Meetings
-export const saveUpcomingMeeting = async (meeting: Omit<Schedule, 'id' | 'createdAt'>) => {
+export const saveUpcomingMeeting = async (meeting: Omit<Schedule, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> => {
   try {
     const docRef = await addDoc(upcomingMeetingsCollection, {
       ...meeting,
@@ -75,11 +77,12 @@ export const saveUpcomingMeeting = async (meeting: Omit<Schedule, 'id' | 'create
   }
 };
 
-export const getUpcomingMeetings = async (userId: string) => {
+export const getUpcomingMeetings = async (userId: string): Promise<Schedule[]> => {
   try {
     const q = query(
       upcomingMeetingsCollection,
-      where('userId', '==', userId)
+      where('userId', '==', userId),
+      where('status', '!=', 'completed') // Only get non-completed meetings
     );
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({
@@ -92,7 +95,7 @@ export const getUpcomingMeetings = async (userId: string) => {
   }
 };
 
-export const updateUpcomingMeeting = async (meetingId: string, updates: Partial<Schedule>) => {
+export const updateUpcomingMeeting = async (meetingId: string, updates: Partial<Omit<Schedule, 'id'>>): Promise<void> => {
   try {
     const meetingRef = doc(upcomingMeetingsCollection, meetingId);
     await updateDoc(meetingRef, {
@@ -105,7 +108,7 @@ export const updateUpcomingMeeting = async (meetingId: string, updates: Partial<
   }
 };
 
-export const deleteUpcomingMeeting = async (meetingId: string) => {
+export const deleteUpcomingMeeting = async (meetingId: string): Promise<void> => {
   try {
     const meetingRef = doc(upcomingMeetingsCollection, meetingId);
     await deleteDoc(meetingRef);
@@ -115,8 +118,7 @@ export const deleteUpcomingMeeting = async (meetingId: string) => {
   }
 };
 
-// Additional utility function similar to getUserById
-export const getMeetingById = async (meetingId: string) => {
+export const getMeetingById = async (meetingId: string): Promise<Schedule | null> => {
   try {
     const meetingRef = doc(upcomingMeetingsCollection, meetingId);
     const meetingSnap = await getDoc(meetingRef);
@@ -135,8 +137,7 @@ export const getMeetingById = async (meetingId: string) => {
   }
 };
 
-// Optional: Get all upcoming meetings (similar to getAllUsers)
-export const getAllUpcomingMeetings = async () => {
+export const getAllUpcomingMeetings = async (): Promise<Schedule[]> => {
   try {
     const querySnapshot = await getDocs(upcomingMeetingsCollection);
     return querySnapshot.docs.map(doc => ({
@@ -145,6 +146,30 @@ export const getAllUpcomingMeetings = async () => {
     })) as Schedule[];
   } catch (error) {
     console.error('Error getting all upcoming meetings:', error);
+    throw error;
+  }
+};
+
+// New function to move completed meetings to previous schedules
+export const completeUpcomingMeeting = async (meetingId: string): Promise<void> => {
+  try {
+    const meeting = await getMeetingById(meetingId);
+    if (!meeting) throw new Error('Meeting not found');
+
+    // Update status in upcoming meetings
+    await updateUpcomingMeeting(meetingId, { status: 'completed' });
+
+    // Save to previous schedules
+    const { id, ...meetingWithoutId } = meeting;
+    await savePreviousSchedule({
+      ...meetingWithoutId,
+      status: 'completed'
+    });
+
+    // Optional: Delete from upcoming meetings after moving
+    // await deleteUpcomingMeeting(meetingId);
+  } catch (error) {
+    console.error('Error completing upcoming meeting:', error);
     throw error;
   }
 };

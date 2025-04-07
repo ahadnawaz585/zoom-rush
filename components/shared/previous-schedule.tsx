@@ -1,13 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { Video, Users, Globe, Clock, Calendar, Play, RefreshCw, X, MoreHorizontal, Info } from "lucide-react";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
+import React, { useState, useEffect, useMemo } from 'react';
+import { Users, Calendar, RefreshCw, X, MoreHorizontal, Info, UserCircle2 } from "lucide-react";
+import { Box, CircularProgress } from '@mui/material';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   DropdownMenu,
@@ -23,46 +16,69 @@ import {
   DialogHeader,
   DialogTitle,
   DialogClose,
+  DialogTrigger,
 } from "@/components/ui/dialog";
-import { countries } from '@/app/data/constants';
-import { getPreviousSchedules, Schedule } from '@/lib/firebase/schedule';
-import Cookies from 'js-cookie';
-import { toast } from "sonner";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import StripedDataGrid from '../ui/StripDataGrid';
+import CustomNoRowsOverlay from '../ui/CustomNoRow';
+import { GridToolbar } from '@mui/x-data-grid';
+import CustomPageSizeSelector from '../ui/customPageSizeSelector';
 import { formatDate } from '../../lib/date';
+
+const PAGE_SIZE_OPTIONS = [5, 10, 25, 50];
 
 interface PreviousScheduleProps {
   onRejoin: (schedule: { meetingId: string; password: string; quantity: number; duration: number; countryCode: string }) => void;
+  schedules: Schedule[];
+  refreshData: () => void;
 }
 
-const PreviousSchedule: React.FC<PreviousScheduleProps> = ({ onRejoin }) => {
-  const [schedules, setSchedules] = useState<Schedule[]>([]);
+interface Schedule {
+  id?: string;
+  meetingId: string;
+  password?: string;
+  quantity: number;
+  duration: number;
+  countryCode: string;
+  status: string;
+  bots?: any[];
+  createdAt?: any;
+  scheduledDate?: string;
+  scheduledTime?: string;
+}
+
+const PreviousSchedule: React.FC<PreviousScheduleProps> = ({ onRejoin, schedules, refreshData }) => {
   const [isInfoOpen, setIsInfoOpen] = useState(false);
   const [selectedMeeting, setSelectedMeeting] = useState<Schedule | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [pageSize, setPageSize] = useState(PAGE_SIZE_OPTIONS[0]);
+  const [page, setPage] = useState(0);
 
-  // Fetch previous schedules from Firebase
+  const [countries, setCountries] = useState<Record<string, string>>({});
+
   useEffect(() => {
-    const fetchSchedules = async () => {
-      const userId = Cookies.get('session');
-      if (!userId) {
-        toast.error("Please log in to view previous schedules");
-        setLoading(false);
-        return;
-      }
-
-      try {
-        const fetchedSchedules = await getPreviousSchedules(userId);
-        setSchedules(fetchedSchedules);
-      } catch (error) {
-        console.error('Error fetching previous schedules:', error);
-        toast.error("Failed to load previous schedules");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchSchedules();
+    setCountries({
+      'US': 'United States',
+      'UK': 'United Kingdom',
+      'CA': 'Canada',
+      'AU': 'Australia',
+      'IN': 'India',
+    });
   }, []);
+
+  const tableData = useMemo(() => {
+    return schedules.map((schedule, index) => ({
+      id: schedule.id || `schedule-${index}`,
+      meetingId: schedule.meetingId,
+      bots: schedule.bots?.length || schedule.quantity || 0,
+      duration: `${schedule.duration} mins`,
+      country: countries[schedule.countryCode] || schedule.countryCode,
+      status: schedule.status,
+      date: schedule.createdAt ? formatDate(schedule.createdAt) : 'N/A',
+      raw: schedule,
+    }));
+  }, [schedules, countries]);
 
   const handleRejoin = (schedule: Schedule) => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -77,7 +93,7 @@ const PreviousSchedule: React.FC<PreviousScheduleProps> = ({ onRejoin }) => {
 
   const handleTerminate = (meetingId: string) => {
     console.log(`Terminating meeting: ${meetingId}`);
-    // Add terminate logic here if needed (e.g., update status in Firebase)
+    refreshData();
   };
 
   const handleShowInfo = (meeting: Schedule) => {
@@ -85,9 +101,125 @@ const PreviousSchedule: React.FC<PreviousScheduleProps> = ({ onRejoin }) => {
     setIsInfoOpen(true);
   };
 
+  const columns: GridColDef[] = [
+    { field: 'meetingId', headerName: 'Meeting ID', flex: 1, minWidth: 130 },
+    { 
+      field: 'bots', 
+      headerName: 'Bots',
+      width: 80,
+      renderCell: (params: GridRenderCellParams) => {
+        const schedule = params.row.raw;
+        return (
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-6 px-2 text-xs dark:text-slate-300">
+                <Users className="h-3 w-3 text-gray-500 mr-1" />
+                {params.value}
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md dark:bg-slate-900">
+              <DialogHeader>
+                <DialogTitle className="dark:text-white">Bot List</DialogTitle>
+              </DialogHeader>
+              <ScrollArea className="h-[200px] mt-4">
+                {schedule.bots?.length ? (
+                  schedule.bots.map((bot: { id: React.Key | null | undefined; name: string | number | boolean | React.ReactElement<any, string | React.JSXElementConstructor<any>> | Iterable<React.ReactNode> | React.ReactPortal | React.PromiseLikeOfReactNode | null | undefined; }) => (
+                    <div key={bot.id} className="flex items-center gap-2 p-2 dark:bg-slate-800">
+                      <UserCircle2 className="h-4 w-4 text-gray-400" />
+                      <span className="text-sm dark:text-gray-300">{bot.name}</span>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-4 dark:text-slate-400">No bots available</div>
+                )}
+              </ScrollArea>
+            </DialogContent>
+          </Dialog>
+        );
+      }
+    },
+    { field: 'duration', headerName: 'Duration', width: 100 },
+    { field: 'country', headerName: 'Country', flex: 1, minWidth: 120 },
+    { 
+      field: 'status', 
+      headerName: 'Status',
+      width: 120,
+      renderCell: (params: GridRenderCellParams) => {
+        const status = params.value as string;
+        return (
+          <span
+            className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium ${
+              status === "completed"
+                ? "bg-green-100 text-green-800 dark:bg-green-900/80 dark:text-green-200"
+                : status === "cancelled"
+                ? "bg-red-100 text-red-800 dark:bg-red-900/80 dark:text-red-200"
+                : "bg-blue-100 text-blue-800 dark:bg-blue-900/80 dark:text-blue-200"
+            }`}
+          >
+            {status.charAt(0).toUpperCase() + status.slice(1)}
+          </span>
+        );
+      }
+    },
+    { field: 'date', headerName: 'Date', flex: 1, minWidth: 100 },
+    {
+      field: 'actions',
+      headerName: 'Actions',
+      width: 100,
+      sortable: false,
+      filterable: false,
+      renderCell: (params: GridRenderCellParams) => {
+        const schedule = params.row.raw;
+        return (
+          <div className="flex justify-end space-x-1">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="h-6 w-6 p-0 dark:text-slate-300"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleShowInfo(schedule);
+              }}
+            >
+              <Info className="h-3 w-3" />
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-6 w-6 p-0 dark:text-slate-300"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <MoreHorizontal className="h-3 w-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="dark:bg-slate-900">
+                <DropdownMenuItem 
+                  className="flex items-center gap-2 dark:text-slate-300 cursor-pointer text-xs py-1"
+                  onClick={() => handleRejoin(schedule)}
+                >
+                  <RefreshCw className="h-3 w-3" />
+                  <span>Rejoin</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  className="flex items-center gap-2 dark:text-red-400 cursor-pointer text-xs py-1"
+                  onClick={() => handleTerminate(schedule.meetingId)}
+                >
+                  <X className="h-3 w-3" />
+                  <span>Terminate</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        );
+      }
+    }
+  ];
+
   if (loading) {
     return (
-      <Card className="mt-6 dark:bg-slate-800 dark:border-slate-700">
+      <Card className="mt-6 dark:bg-slate-900 dark:border-slate-800">
         <CardHeader className="py-3">
           <CardTitle className="flex items-center gap-2 dark:text-white text-sm">
             <Calendar className="h-4 w-4" />
@@ -95,7 +227,10 @@ const PreviousSchedule: React.FC<PreviousScheduleProps> = ({ onRejoin }) => {
           </CardTitle>
         </CardHeader>
         <CardContent className="py-2">
-          <div className="text-center">Loading previous schedules...</div>
+          <div className="text-center dark:text-slate-300">
+            <CircularProgress size={24} className="dark:text-blue-400" />
+            <div className="mt-2">Loading previous schedules...</div>
+          </div>
         </CardContent>
       </Card>
     );
@@ -103,7 +238,7 @@ const PreviousSchedule: React.FC<PreviousScheduleProps> = ({ onRejoin }) => {
 
   return (
     <>
-      <Card className="mt-6 dark:bg-slate-800 dark:border-slate-700">
+      <Card className="mt-6 dark:bg-slate-900 dark:border-slate-800">
         <CardHeader className="py-3">
           <CardTitle className="flex items-center gap-2 dark:text-white text-sm">
             <Calendar className="h-4 w-4" />
@@ -111,173 +246,196 @@ const PreviousSchedule: React.FC<PreviousScheduleProps> = ({ onRejoin }) => {
           </CardTitle>
         </CardHeader>
         <CardContent className="py-2">
-          {schedules.length === 0 ? (
-            <div className="text-center py-4 dark:text-slate-400">
-              No previous schedules found
-            </div>
-          ) : (
-            <div className="rounded-md border dark:border-slate-600">
-              <Table className="text-xs">
-                <TableHeader className="dark:bg-slate-900">
-                  <TableRow className="dark:border-slate-700 h-8">
-                    <TableHead className="dark:text-slate-300 py-1.5 px-2 text-xs font-medium">Meeting ID</TableHead>
-                    <TableHead className="dark:text-slate-300 py-1.5 px-2 text-xs font-medium">Bots</TableHead>
-                    <TableHead className="dark:text-slate-300 py-1.5 px-2 text-xs font-medium">Duration</TableHead>
-                    <TableHead className="dark:text-slate-300 py-1.5 px-2 text-xs font-medium">Country</TableHead>
-                    <TableHead className="dark:text-slate-300 py-1.5 px-2 text-xs font-medium">Status</TableHead>
-                    <TableHead className="dark:text-slate-300 py-1.5 px-2 text-xs font-medium">Date</TableHead>
-                    <TableHead className="dark:text-slate-300 py-1.5 px-2 text-xs font-medium text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {schedules.map((schedule) => (
-                    <TableRow key={schedule.id} className="dark:border-slate-700 dark:hover:bg-slate-800/50 h-8">
-                      <TableCell className="dark:text-slate-300 py-1 px-2 text-xs">{schedule.meetingId}</TableCell>
-                      <TableCell className="dark:text-slate-300 py-1 px-2 text-xs">{schedule.quantity}</TableCell>
-                      <TableCell className="dark:text-slate-300 py-1 px-2 text-xs">{schedule.duration} mins</TableCell>
-                      <TableCell className="dark:text-slate-300 py-1 px-2 text-xs">{countries[schedule.countryCode as keyof typeof countries]}</TableCell>
-                      <TableCell className="py-1 px-2">
-                        <span
-                          className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium ${
-                            schedule.status === "completed"
-                              ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
-                              : schedule.status === "cancelled"
-                              ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
-                              : "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
-                          }`}
-                        >
-                          {schedule.status.charAt(0).toUpperCase() + schedule.status.slice(1)}
-                        </span>
-                      </TableCell>
-                      <TableCell className="dark:text-slate-300 py-1 px-2 text-xs">
-                        {schedule.createdAt  
-                          ? `${formatDate(schedule.createdAt)}`
-                          : 'N/A'}
-                      </TableCell>
-                      <TableCell className="text-right py-1 px-2 flex justify-end space-x-1">
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="h-6 w-6 p-0 dark:text-slate-300 dark:hover:bg-slate-700"
-                          onClick={() => handleShowInfo(schedule)}
-                        >
-                          <span className="sr-only">Show details</span>
-                          <Info className="h-3 w-3" />
-                        </Button>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0 dark:text-slate-300 dark:hover:bg-slate-700">
-                              <span className="sr-only">Open menu</span>
-                              <MoreHorizontal className="h-3 w-3" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="dark:bg-slate-800 dark:border-slate-700">
-                            <DropdownMenuItem 
-                              className="flex items-center gap-2 dark:text-slate-300 dark:hover:bg-slate-700 dark:focus:bg-slate-700 cursor-pointer text-xs py-1"
-                              onClick={() => handleRejoin(schedule)}
-                            >
-                              <RefreshCw className="h-3 w-3" />
-                              <span>Rejoin</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              className="flex items-center gap-2 dark:text-slate-300 dark:hover:bg-slate-700 dark:focus:bg-slate-700 cursor-pointer text-red-600 dark:text-red-400 text-xs py-1"
-                              onClick={() => handleTerminate(schedule.meetingId)}
-                            >
-                              <X className="h-3 w-3" />
-                              <span>Terminate</span>
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
+          <Box sx={{ 
+            width: '100%', 
+            maxHeight: 500,
+            overflow: 'hidden',
+            '& .MuiDataGrid-root': {
+              border: 'none',
+              backgroundColor: 'rgb(15, 23, 42)', // slate-950
+              color: 'rgb(255, 255, 255)',
+              '& .MuiDataGrid-columnHeaders': {
+                backgroundColor: 'rgb(15, 23, 42)', // slate-950 for headers
+                borderBottom: '1px solid rgba(148, 163, 184, 0.2)',
+                color: 'rgb(255, 255, 255)',
+                fontWeight: 'bold',
+              },
+              '& .MuiDataGrid-columnHeader': {
+                backgroundColor: 'rgb(15, 23, 42)', // Ensure individual headers are dark
+                color: 'rgb(255, 255, 255)', // White text
+                '& .MuiDataGrid-columnHeaderTitle': {
+                  color: 'rgb(255, 255, 255)', // Explicitly set title color
+                  fontWeight: 'bold',
+                },
+              },
+              '& .MuiDataGrid-cell': {
+                borderBottom: '1px solid rgba(148, 163, 184, 0.1)',
+                color: 'rgb(203, 213, 225)', // slate-300
+              },
+              '& .MuiDataGrid-row': {
+                '&.odd': {
+                  backgroundColor: 'rgb(30, 41, 59)', // slate-800
+                },
+                '&.even': {
+                  backgroundColor: 'rgb(15, 23, 42)', // slate-950
+                },
+                '&:hover': {
+                  backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                },
+              },
+              '& .MuiDataGrid-footerContainer': {
+                backgroundColor: 'rgb(15, 23, 42)', // slate-950
+                color: 'rgb(255, 255, 255)',
+                borderTop: '1px solid rgba(148, 163, 184, 0.2)',
+              },
+              '& .MuiDataGrid-toolbarContainer': {
+                backgroundColor: 'rgb(15, 23, 42)', // slate-950
+                color: 'rgb(255, 255, 255)',
+                padding: '8px',
+                display: 'flex',
+                justifyContent: 'flex-end',
+                alignItems: 'center',
+              },
+              '& .MuiDataGrid-virtualScroller': {
+                overflowY: 'auto',
+                maxHeight: '400px',
+                backgroundColor: 'rgb(15, 23, 42)', // slate-950
+              },
+              '& .MuiTablePagination-root': {
+                color: 'rgb(255, 255, 255)',
+              },
+              '& .MuiIconButton-root': {
+                color: 'rgb(255, 255, 255)',
+                '&.Mui-disabled': {
+                  color: 'rgba(255, 255, 255, 0.3)', // Ensure disabled state is visible
+                },
+              },
+              '& .MuiSvgIcon-root': {
+                color: 'rgb(255, 255, 255)',
+              },
+              '& .MuiDataGrid-overlay': {
+                backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                color: 'rgb(255, 255, 255)',
+              },
+            },
+          }}>
+            <StripedDataGrid
+              rows={tableData}
+              columns={columns}
+              pagination
+              paginationMode="client"
+              rowCount={tableData.length}
+              pageSizeOptions={PAGE_SIZE_OPTIONS}
+              paginationModel={{ page, pageSize }}
+              onPaginationModelChange={(model) => {
+                setPage(model.page);
+                setPageSize(model.pageSize);
+              }}
+              disableRowSelectionOnClick
+              loading={loading}
+              slots={{
+                toolbar: () => (
+                  <Box sx={{ display: 'flex', justifyContent: 'flex-end', width: '100%', padding: '8px' }}>
+                    <GridToolbar />
+                    
+                  </Box>
+                ),
+                noRowsOverlay: CustomNoRowsOverlay,
+              }}
+              sx={{
+                borderRadius: '8px',
+                overflow: 'hidden',
+              }}  
+            />
+          </Box>
         </CardContent>
       </Card>
 
-      {/* Meeting Info Dialog */}
       <Dialog open={isInfoOpen} onOpenChange={setIsInfoOpen}>
-        <DialogContent className="dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300 max-w-md">
+        <DialogContent className="dark:bg-slate-900 dark:border-slate-800 dark:text-slate-300 max-w-md">
           <DialogHeader>
             <DialogTitle className="dark:text-white">Meeting Details</DialogTitle>
             <DialogDescription className="dark:text-slate-400">
-              Information about the selected meeting
+              Complete information about the selected meeting
             </DialogDescription>
           </DialogHeader>
-          
           <div className="grid gap-4 py-2">
             {selectedMeeting && (
               <>
                 <div className="grid grid-cols-3 gap-2 text-xs">
                   <div className="font-medium dark:text-slate-400">Meeting ID:</div>
-                  <div className="col-span-2">{selectedMeeting.meetingId}</div>
+                  <div className="col-span-2 dark:text-slate-200">{selectedMeeting.meetingId}</div>
                 </div>
-                
+                <div className="grid grid-cols-3 gap-2 text-xs">
+                  <div className="font-medium dark:text-slate-400">Password:</div>
+                  <div className="col-span-2 dark:text-slate-200">{selectedMeeting.password || 'N/A'}</div>
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-xs">
+                  <div className="font-medium dark:text-slate-400">Quantity:</div>
+                  <div className="col-span-2 dark:text-slate-200">{selectedMeeting.quantity}</div>
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-xs">
+                  <div className="font-medium dark:text-slate-400">Duration:</div>
+                  <div className="col-span-2 dark:text-slate-200">{selectedMeeting.duration} minutes</div>
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-xs">
+                  <div className="font-medium dark:text-slate-400">Country:</div>
+                  <div className="col-span-2 dark:text-slate-200">{countries[selectedMeeting.countryCode] || selectedMeeting.countryCode}</div>
+                </div>
                 <div className="grid grid-cols-3 gap-2 text-xs">
                   <div className="font-medium dark:text-slate-400">Status:</div>
                   <div className="col-span-2">
                     <span
                       className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium ${
                         selectedMeeting.status === "completed"
-                          ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
+                          ? "bg-green-100 text-green-800 dark:bg-green-900/80 dark:text-green-200"
                           : selectedMeeting.status === "cancelled"
-                          ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
-                          : "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
+                          ? "bg-red-100 text-red-800 dark:bg-red-900/80 dark:text-red-200"
+                          : "bg-blue-100 text-blue-800 dark:bg-blue-900/80 dark:text-blue-200"
                       }`}
                     >
                       {selectedMeeting.status.charAt(0).toUpperCase() + selectedMeeting.status.slice(1)}
                     </span>
                   </div>
                 </div>
-                
                 <div className="grid grid-cols-3 gap-2 text-xs">
                   <div className="font-medium dark:text-slate-400">Bots:</div>
-                  <div className="col-span-2">{selectedMeeting.quantity}</div>
-                </div>
-                
-                <div className="grid grid-cols-3 gap-2 text-xs">
-                  <div className="font-medium dark:text-slate-400">Duration:</div>
-                  <div className="col-span-2">{selectedMeeting.duration} minutes</div>
-                </div>
-                
-                <div className="grid grid-cols-3 gap-2 text-xs">
-                  <div className="font-medium dark:text-slate-400">Country:</div>
-                  <div className="col-span-2">{countries[selectedMeeting.countryCode as keyof typeof countries]}</div>
-                </div>
-                
-                <div className="grid grid-cols-3 gap-2 text-xs">
-                  <div className="font-medium dark:text-slate-400">Date:</div>
-                  <div className="col-span-2">
-                    {selectedMeeting.scheduledDate && selectedMeeting.scheduledTime 
-                      ? `${selectedMeeting.scheduledDate} ${selectedMeeting.scheduledTime}`
-                      : 'N/A'}
+                  <div className="col-span-2 dark:text-slate-200">
+                    {selectedMeeting.bots?.length || selectedMeeting.quantity || 0}
                   </div>
                 </div>
-                
                 <div className="grid grid-cols-3 gap-2 text-xs">
-                  <div className="font-medium dark:text-slate-400">Time Zone:</div>
-                  <div className="col-span-2">UTC+2 (Static for now)</div>
+                  <div className="font-medium dark:text-slate-400">Created At:</div>
+                  <div className="col-span-2 dark:text-slate-200">
+                    {selectedMeeting.createdAt ? formatDate(selectedMeeting.createdAt) : 'N/A'}
+                  </div>
                 </div>
-                
                 <div className="grid grid-cols-3 gap-2 text-xs">
-                  <div className="font-medium dark:text-slate-400">Host:</div>
-                  <div className="col-span-2">John Doe (Static for now)</div>
+                  <div className="font-medium dark:text-slate-400">Scheduled Date:</div>
+                  <div className="col-span-2 dark:text-slate-200">
+                    {selectedMeeting.scheduledDate || 'N/A'}
+                  </div>
                 </div>
-                
                 <div className="grid grid-cols-3 gap-2 text-xs">
-                  <div className="font-medium dark:text-slate-400">Notes:</div>
-                  <div className="col-span-2">This meeting was scheduled for testing purposes. (Static for now)</div>
+                  <div className="font-medium dark:text-slate-400">Scheduled Time:</div>
+                  <div className="col-span-2 dark:text-slate-200">
+                    {selectedMeeting.scheduledTime || 'N/A'}
+                  </div>
                 </div>
               </>
             )}
           </div>
-          
-          <div className="flex justify-end">
+          <div className="flex justify-between mt-4">
+            <Button 
+              variant="outline" 
+              className="dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300"
+              onClick={() => selectedMeeting && handleRejoin(selectedMeeting)}
+            >
+              <RefreshCw className="h-3 w-3 mr-1" />
+              Rejoin
+            </Button>
             <DialogClose asChild>
-              <Button variant="outline" className="dark:bg-slate-700 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-600 text-xs">
+              <Button variant="outline" className="dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300">
                 Close
               </Button>
             </DialogClose>

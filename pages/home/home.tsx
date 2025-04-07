@@ -580,8 +580,9 @@ const joinMeeting = useCallback(async (joinFormValues: FormValues) => {
                   ...acc,
                   [country.code]: country.name
                 }), {})}
-                onJoinMeeting={handleJoinScheduledMeeting}
-              />
+                onJoinMeeting={handleJoinScheduledMeeting} onRejoin={function (schedule: { meetingId: string; password: string; quantity: number; duration: number; countryCode: string; }): void {
+                  throw new Error("Function not implemented.");
+                } }              />
             </div>
             
             <div className="mt-4 md:mt-6">
