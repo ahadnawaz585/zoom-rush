@@ -168,7 +168,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   console.log(`[${new Date().toISOString()}] Received join meeting request`);
   const body = (await req.json()) as JoinRequest;
   let { bots, meetingId, password, botCount = 0,duration} = body;
-
+console.log("request recieved:", bots, meetingId, password, botCount,duration)
   if (!meetingId || !password) {
     console.error(`[${new Date().toISOString()}] Missing required fields`);
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
