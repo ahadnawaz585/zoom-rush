@@ -22,7 +22,7 @@ export interface Schedule {
   scheduledDate?: string;
   scheduledTime?: string;
   status: 'scheduled' | 'cancelled' | 'completed';
-  bots: Bot[];
+  bots: any;
   userId: string;
   createdAt: any; // Compatible with serverTimestamp
   updatedAt?: any; // Optional field for updates

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Video, User, LogOut, Menu, X, Moon, Sun, Shield, UserCog } from "lucide-react";
 import Cookies from "js-cookie";
 import { useRouter } from "next/navigation";
@@ -16,13 +16,8 @@ export default function Navbar() {
   const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(false);
   const router = useRouter();
   
-
   const sessionId = Cookies.get("session");
   const adminSession = Cookies.get("adminSession");
-
-
-
-
   
   useEffect(() => {
     const darkModeCookie = Cookies.get("darkMode");
@@ -53,6 +48,43 @@ export default function Navbar() {
       sameSite: "strict",
     });
   };
+
+  const performLogout = useCallback(() => {
+    Cookies.remove("session");
+    Cookies.remove("adminSession");
+    localStorage.removeItem("userData");
+    router.push("/");
+  }, [router]);
+
+  const fetchUserData = useCallback(async () => {
+    if (!sessionId) return;
+    setIsLoadingUser(true);
+    try {
+      const userData: any = await getUserName(sessionId);
+      if (userData) {
+        // Ensure role is properly set
+        if (!userData.role && adminSession) {
+          userData.role = "admin";
+        } else if (!userData.role) {
+          userData.role = "user";
+        }
+        
+        // Always normalize to lowercase
+        if (userData.role) {
+          userData.role = userData.role.toLowerCase();
+        }
+        
+        localStorage.setItem("userData", JSON.stringify(userData));
+        setUser(userData);
+      } else {
+        performLogout();
+      }
+    } catch (error) {
+      console.error("Error fetching user data:", error);
+    } finally {
+      setIsLoadingUser(false);
+    }
+  }, [sessionId, adminSession, performLogout]);
 
   useEffect(() => {
     if (!sessionId) {
@@ -117,47 +149,10 @@ export default function Navbar() {
     } else {
       fetchUserData();
     }
-  }, [router, sessionId, adminSession]);
-
-  const fetchUserData = async () => {
-    if (!sessionId) return;
-    setIsLoadingUser(true);
-    try {
-      const userData: any = await getUserName(sessionId);
-      if (userData) {
-        // Ensure role is properly set
-        if (!userData.role && adminSession) {
-          userData.role = "admin";
-        } else if (!userData.role) {
-          userData.role = "user";
-        }
-        
-        // Always normalize to lowercase
-        if (userData.role) {
-          userData.role = userData.role.toLowerCase();
-        }
-        
-        localStorage.setItem("userData", JSON.stringify(userData));
-        setUser(userData);
-      } else {
-        performLogout();
-      }
-    } catch (error) {
-      console.error("Error fetching user data:", error);
-    } finally {
-      setIsLoadingUser(false);
-    }
-  };
+  }, [router, sessionId, adminSession, fetchUserData]);
 
   const showLogoutDialog = () => setIsLogoutDialogOpen(true);
   const closeLogoutDialog = () => setIsLogoutDialogOpen(false);
-
-  const performLogout = () => {
-    Cookies.remove("session");
-    Cookies.remove("adminSession");
-    localStorage.removeItem("userData");
-    router.push("/");
-  };
 
   const toggleMobileMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen);
 

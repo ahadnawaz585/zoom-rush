@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { Home, Video } from "lucide-react";
+
 import { withUserEnabled } from '@/components/HOC/withUserEnabled';
 import { toast } from "sonner";
 import MeetingForm from "@/components/shared/meeting-form";
@@ -16,7 +17,7 @@ import { previousSchedules } from '@/app/data/constants';
 import DashboardGraphs from "@/components/dashboard/DashboardGraphs";
 import Head from "next/head";
 import { generateBotNames } from "../../services/generateNames";
-import { format } from "util";
+import { formatDate } from "@/lib/date";
 import UpcomingMeetings from "@/components/shared/upcoming";
 import { getUserById } from "@/lib/firebase/users";
 import { savePreviousSchedule, Schedule, getPreviousSchedules } from "@/lib/firebase/schedule";
@@ -481,13 +482,6 @@ const joinMeeting = useCallback(async (joinFormValues: FormValues) => {
     };
 
     setUpcomingMeetings(prev => [...prev, newMeeting]);
-    
-    toast.success("Meeting scheduled successfully", {
-      description: `Meeting scheduled for ${format(
-        new Date(`${values.scheduledDate}T${values.scheduledTime}`),
-        'MMM d, yyyy HH:mm'
-      )}`
-    });
   }, []);
 
   const handleCancelMeeting = useCallback((meetingId: string) => {
@@ -580,13 +574,15 @@ const joinMeeting = useCallback(async (joinFormValues: FormValues) => {
                   ...acc,
                   [country.code]: country.name
                 }), {})}
-                onJoinMeeting={handleJoinScheduledMeeting} onRejoin={function (schedule: { meetingId: string; password: string; quantity: number; duration: number; countryCode: string; }): void {
+                onJoinMeeting={handleJoinScheduledMeeting}
+                onRejoin={function (schedule: { meetingId: string; password: string; quantity: number; duration: number; countryCode: string; }): void {
                   throw new Error("Function not implemented.");
-                } }              />
+                }}
+                            />
             </div>
             
             <div className="mt-4 md:mt-6">
-              <DashboardGraphs schedules={dashboardData} />
+              <DashboardGraphs  />
             </div>
             
             <div className="mt-4 md:mt-6">
