@@ -28,30 +28,39 @@ import {
   getUpcomingMeetings,
   updateUpcomingMeeting,
   deleteUpcomingMeeting,
-  
 } from '@/lib/firebase/schedule';
 
 const PAGE_SIZE_OPTIONS = [5, 10, 25, 50];
+
+export interface Schedule {
+  id: string;
+  userId: string;
+  meetingId: string;
+  password: string;
+  quantity: number;
+  duration: number;
+  countryCode: string;
+  status: 'scheduled' | 'cancelled' | 'completed';
+  scheduledDate?: string;
+  scheduledTime?: string;
+  createdAt?: any;
+  bots: Array<{
+    id: string;
+    name: string;
+    status: string;
+    countryCode: string;
+    country?: string;
+    flag?: string;
+  }>;
+}
 
 interface UpcomingMeetingsProps {
   userId: string;
   countries: Record<string, string>;
   onJoinMeeting: (meeting: Schedule) => void;
   onRejoin: (schedule: { meetingId: string; password: string; quantity: number; duration: number; countryCode: string }) => void;
-}
-
-interface Schedule {
-  id?: string;
-  meetingId: string;
-  password?: string;
-  quantity: number;
-  duration: number;
-  countryCode: string;
-  status: string;
-  bots?: any[];
-  createdAt?: any;
-  scheduledDate?: string;
-  scheduledTime?: string;
+  meetings: Schedule[]; // Add meetings prop
+  setMeetings: React.Dispatch<React.SetStateAction<Schedule[]>>; // Add setter prop
 }
 
 const UpcomingMeetings: React.FC<UpcomingMeetingsProps> = ({
@@ -59,8 +68,9 @@ const UpcomingMeetings: React.FC<UpcomingMeetingsProps> = ({
   countries,
   onJoinMeeting,
   onRejoin,
+  meetings,
+  setMeetings,
 }) => {
-  const [meetings, setMeetings] = useState<Schedule[]>([]);
   const [loading, setLoading] = useState(true);
   const [isInfoOpen, setIsInfoOpen] = useState(false);
   const [selectedMeeting, setSelectedMeeting] = useState<Schedule | null>(null);
@@ -69,18 +79,21 @@ const UpcomingMeetings: React.FC<UpcomingMeetingsProps> = ({
 
   useEffect(() => {
     const fetchMeetings = async () => {
+      if (!userId) {
+        setLoading(false);
+        return;
+      }
       try {
         const upcomingMeetings = await getUpcomingMeetings(userId);
-        setMeetings(upcomingMeetings);
+        setMeetings(upcomingMeetings.filter(m => m.status !== 'completed'));
       } catch (error) {
         console.error('Failed to fetch meetings:', error);
       } finally {
         setLoading(false);
       }
     };
-
     fetchMeetings();
-  }, [userId]);
+  }, [userId, setMeetings]);
 
   const isScheduledTime = (date: string | undefined, time: string | undefined) => {
     if (!date || !time) return false;
@@ -111,7 +124,6 @@ const UpcomingMeetings: React.FC<UpcomingMeetingsProps> = ({
   };
 
   const handleRejoin = (schedule: Schedule) => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
     onRejoin({
       meetingId: schedule.meetingId,
       password: schedule.password || "",
@@ -127,13 +139,13 @@ const UpcomingMeetings: React.FC<UpcomingMeetingsProps> = ({
   };
 
   const tableData = useMemo(() => {
-    return meetings.map((meeting, index) => ({
-      id: meeting.id || `meeting-${index}`,
+    return meetings.map((meeting) => ({
+      id: meeting.id,
       meetingId: meeting.meetingId,
       schedule: meeting.scheduledDate && meeting.scheduledTime
         ? formatDate(new Date(`${meeting.scheduledDate}T${meeting.scheduledTime}`))
         : 'Not scheduled',
-      bots: meeting.bots?.length || meeting.quantity || 0,
+      bots: meeting.bots.length,
       duration: `${meeting.duration} mins`,
       country: countries[meeting.countryCode] || meeting.countryCode,
       status: meeting.status,
@@ -153,25 +165,25 @@ const UpcomingMeetings: React.FC<UpcomingMeetingsProps> = ({
         return (
           <Dialog>
             <DialogTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-6 px-2 text-xs dark:text-slate-300">
-                <Users className="h-3 w-3 text-gray-500 mr-1" />
+              <Button variant="ghost" size="sm" className="h-6 px-2 text-xs text-gray-600 dark:text-gray-300">
+                <Users className="h-3 w-3 text-gray-500 dark:text-gray-400 mr-1" />
                 {params.value}
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-md dark:bg-slate-900">
+            <DialogContent className="max-w-md bg-white dark:bg-gray-900 border dark:border-gray-800">
               <DialogHeader>
-                <DialogTitle className="dark:text-white">Bot List</DialogTitle>
+                <DialogTitle className="text-gray-900 dark:text-gray-100">Bot List</DialogTitle>
               </DialogHeader>
               <ScrollArea className="h-[200px] mt-4">
-                {meeting.bots?.length ? (
-                  meeting.bots.map((bot: { id: React.Key | null | undefined; name: string }) => (
-                    <div key={bot.id} className="flex items-center gap-2 p-2 dark:bg-slate-800">
-                      <UserCircle2 className="h-4 w-4 text-gray-400" />
-                      <span className="text-sm dark:text-gray-300">{bot.name}</span>
+                {meeting.bots.length ? (
+                  meeting.bots.map((bot: { id: React.Key | null | undefined; name: any }) => (
+                    <div key={bot.id} className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-800">
+                      <UserCircle2 className="h-4 w-4 text-gray-400 dark:text-gray-500" />
+                      <span className="text-sm text-gray-700 dark:text-gray-300">{bot.name}</span>
                     </div>
                   ))
                 ) : (
-                  <div className="text-center py-4 dark:text-slate-400">No bots available</div>
+                  <div className="text-center py-4 text-gray-500 dark:text-gray-400">No bots available</div>
                 )}
               </ScrollArea>
             </DialogContent>
@@ -213,7 +225,7 @@ const UpcomingMeetings: React.FC<UpcomingMeetingsProps> = ({
             <Button
               variant="ghost"
               size="sm"
-              className="h-6 w-6 p-0 dark:text-slate-300"
+              className="h-6 w-6 p-0 text-gray-600 dark:text-gray-300"
               onClick={(e) => {
                 e.stopPropagation();
                 handleShowInfo(meeting);
@@ -226,15 +238,15 @@ const UpcomingMeetings: React.FC<UpcomingMeetingsProps> = ({
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-6 w-6 p-0 dark:text-slate-300"
+                  className="h-6 w-6 p-0 text-gray-600 dark:text-gray-300"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <MoreHorizontal className="h-3 w-3" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="dark:bg-slate-900">
+              <DropdownMenuContent align="end" className="bg-white dark:bg-gray-900 border dark:border-gray-800">
                 <DropdownMenuItem
-                  className="flex items-center gap-2 dark:text-slate-300 cursor-pointer text-xs py-1"
+                  className="flex items-center gap-2 text-gray-700 dark:text-gray-300 cursor-pointer text-xs py-1 hover:bg-gray-100 dark:hover:bg-gray-800"
                   onClick={() => onJoinMeeting(meeting)}
                   disabled={meeting.status === 'cancelled' || !isScheduledTime(meeting.scheduledDate, meeting.scheduledTime)}
                 >
@@ -242,7 +254,7 @@ const UpcomingMeetings: React.FC<UpcomingMeetingsProps> = ({
                   <span>Join</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  className="flex items-center gap-2 dark:text-slate-300 cursor-pointer text-xs py-1"
+                  className="flex items-center gap-2 text-gray-700 dark:text-gray-300 cursor-pointer text-xs py-1 hover:bg-gray-100 dark:hover:bg-gray-800"
                   onClick={() => handleRejoin(meeting)}
                 >
                   <RefreshCw className="h-3 w-3" />
@@ -250,7 +262,7 @@ const UpcomingMeetings: React.FC<UpcomingMeetingsProps> = ({
                 </DropdownMenuItem>
                 {meeting.status !== 'cancelled' && (
                   <DropdownMenuItem
-                    className="flex items-center gap-2 dark:text-red-400 cursor-pointer text-xs py-1"
+                    className="flex items-center gap-2 text-red-600 dark:text-red-400 cursor-pointer text-xs py-1 hover:bg-gray-100 dark:hover:bg-gray-800"
                     onClick={() => handleCancelMeeting(meeting.id)}
                   >
                     <X className="h-3 w-3" />
@@ -258,7 +270,7 @@ const UpcomingMeetings: React.FC<UpcomingMeetingsProps> = ({
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuItem
-                  className="flex items-center gap-2 dark:text-red-400 cursor-pointer text-xs py-1"
+                  className="flex items-center gap-2 text-red-600 dark:text-red-400 cursor-pointer text-xs py-1 hover:bg-gray-100 dark:hover:bg-gray-800"
                   onClick={() => handleDeleteMeeting(meeting.id)}
                 >
                   <Trash2 className="h-3 w-3" />
@@ -274,18 +286,16 @@ const UpcomingMeetings: React.FC<UpcomingMeetingsProps> = ({
 
   if (loading) {
     return (
-      <Card className="mt-6 dark:bg-slate-900 dark:border-slate-800">
-        <CardHeader className="py-3">
-          <CardTitle className="flex items-center gap-2 dark:text-white text-sm">
+      <Card className="bg-white dark:bg-gray-900 shadow-md border dark:border-gray-800 mt-6">
+        <CardHeader className="bg-[#F8F8F8] dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-3 sm:px-6 py-4">
+          <CardTitle className="flex items-center gap-2 text-[#232333] dark:text-gray-100 text-sm">
             <Calendar className="h-4 w-4" />
             Upcoming Meetings
           </CardTitle>
         </CardHeader>
-        <CardContent className="py-2">
-          <div className="text-center dark:text-slate-300">
-            <CircularProgress size={24} className="dark:text-blue-400" />
-            <div className="mt-2">Loading upcoming meetings...</div>
-          </div>
+        <CardContent className="py-2 text-center text-gray-600 dark:text-gray-300">
+          <CircularProgress size={24} className="text-[#0E72ED] dark:text-blue-400" />
+          <div className="mt-2">Loading upcoming meetings...</div>
         </CardContent>
       </Card>
     );
@@ -293,84 +303,142 @@ const UpcomingMeetings: React.FC<UpcomingMeetingsProps> = ({
 
   return (
     <>
-      <Card className="mt-6 dark:bg-slate-900 dark:border-slate-800">
-        <CardHeader className="py-3">
-          <CardTitle className="flex items-center gap-2 dark:text-white text-sm">
+      <Card className="bg-white dark:bg-gray-900 shadow-md border dark:border-gray-800 mt-6">
+        <CardHeader className="bg-[#F8F8F8] dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-3 sm:px-6 py-4">
+          <CardTitle className="flex items-center gap-2 text-[#232333] dark:text-gray-100 text-sm">
             <Calendar className="h-4 w-4" />
             Upcoming Meetings
           </CardTitle>
         </CardHeader>
-        <CardContent className="py-2">
+        <CardContent className="p-3 sm:p-6">
           <Box sx={{
             width: '100%',
             maxHeight: 500,
             overflow: 'hidden',
             '& .MuiDataGrid-root': {
               border: 'none',
-              backgroundColor: 'rgb(15, 23, 42)', // slate-950
-              color: 'rgb(255, 255, 255)',
+              backgroundColor: '#ffffff',
+              color: '#232333',
               '& .MuiDataGrid-columnHeaders': {
-                backgroundColor: 'rgb(15, 23, 42)', // slate-950 for headers
-                borderBottom: '1px solid rgba(148, 163, 184, 0.2)',
-                color: 'rgb(255, 255, 255)',
+                backgroundColor: '#F8F8F8',
+                borderBottom: '1px solid #e5e7eb',
+                color: '#232333',
                 fontWeight: 'bold',
               },
               '& .MuiDataGrid-columnHeader': {
-                backgroundColor: 'rgb(15, 23, 42)', // Ensure individual headers are dark
-                color: 'rgb(255, 255, 255)', // White text
+                backgroundColor: '#F8F8F8',
+                color: '#232333',
                 '& .MuiDataGrid-columnHeaderTitle': {
-                  color: 'rgb(255, 255, 255)', // Explicitly set title color
+                  color: '#232333',
                   fontWeight: 'bold',
                 },
               },
               '& .MuiDataGrid-cell': {
-                borderBottom: '1px solid rgba(148, 163, 184, 0.1)',
-                color: 'rgb(203, 213, 225)', // slate-300
+                borderBottom: '1px solid #e5e7eb',
+                color: '#4b5563',
               },
               '& .MuiDataGrid-row': {
                 '&.odd': {
-                  backgroundColor: 'rgb(30, 41, 59)', // slate-800
+                  backgroundColor: '#f9fafb',
                 },
                 '&.even': {
-                  backgroundColor: 'rgb(15, 23, 42)', // slate-950
+                  backgroundColor: '#ffffff',
                 },
                 '&:hover': {
-                  backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                  backgroundColor: '#eff6ff',
                 },
               },
               '& .MuiDataGrid-footerContainer': {
-                backgroundColor: 'rgb(15, 23, 42)', // slate-950
-                color: 'rgb(255, 255, 255)',
-                borderTop: '1px solid rgba(148, 163, 184, 0.2)',
+                backgroundColor: '#F8F8F8',
+                color: '#232333',
+                borderTop: '1px solid #e5e7eb',
               },
               '& .MuiDataGrid-toolbarContainer': {
-                backgroundColor: 'rgb(15, 23, 42)', // slate-950
-                color: 'rgb(255, 255, 255)',
+                backgroundColor: '#F8F8F8',
+                color: '#232333',
                 padding: '8px',
                 display: 'flex',
                 justifyContent: 'flex-end',
-                alignItems: 'center',
               },
               '& .MuiDataGrid-virtualScroller': {
                 overflowY: 'auto',
                 maxHeight: '400px',
-                backgroundColor: 'rgb(15, 23, 42)', // slate-950
+                backgroundColor: '#ffffff',
               },
               '& .MuiTablePagination-root': {
-                color: 'rgb(255, 255, 255)',
+                color: '#232333',
               },
               '& .MuiIconButton-root': {
-                color: 'rgb(255, 255, 255)',
+                color: '#232333',
                 '&.Mui-disabled': {
-                  color: 'rgba(255, 255, 255, 0.3)', // Ensure disabled state is visible
+                  color: 'rgba(35, 35, 51, 0.3)',
                 },
               },
               '& .MuiSvgIcon-root': {
-                color: 'rgb(255, 255, 255)',
+                color: '#232333',
               },
               '& .MuiDataGrid-overlay': {
-                backgroundColor: 'rgba(15, 23, 42, 0.9)',
-                color: 'rgb(255, 255, 255)',
+                backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                color: '#232333',
+              },
+              '.dark &': {
+                backgroundColor: '#1f2937',
+                color: '#f3f4f6',
+                '& .MuiDataGrid-columnHeaders': {
+                  backgroundColor: '#1f2937',
+                  borderBottom: '1px solid #4b5563',
+                  color: '#f3f4f6',
+                },
+                '& .MuiDataGrid-columnHeader': {
+                  backgroundColor: '#1f2937',
+                  color: '#f3f4f6',
+                  '& .MuiDataGrid-columnHeaderTitle': {
+                    color: '#f3f4f6',
+                  },
+                },
+                '& .MuiDataGrid-cell': {
+                  borderBottom: '1px solid #4b5563',
+                  color: '#d1d5db',
+                },
+                '& .MuiDataGrid-row': {
+                  '&.odd': {
+                    backgroundColor: '#374151',
+                  },
+                  '&.even': {
+                    backgroundColor: '#1f2937',
+                  },
+                  '&:hover': {
+                    backgroundColor: '#4b5563',
+                  },
+                },
+                '& .MuiDataGrid-footerContainer': {
+                  backgroundColor: '#1f2937',
+                  color: '#f3f4f6',
+                  borderTop: '1px solid #4b5563',
+                },
+                '& .MuiDataGrid-toolbarContainer': {
+                  backgroundColor: '#1f2937',
+                  color: '#f3f4f6',
+                },
+                '& .MuiDataGrid-virtualScroller': {
+                  backgroundColor: '#1f2937',
+                },
+                '& .MuiTablePagination-root': {
+                  color: '#f3f4f6',
+                },
+                '& .MuiIconButton-root': {
+                  color: '#f3f4f6',
+                  '&.Mui-disabled': {
+                    color: 'rgba(243, 244, 246, 0.3)',
+                  },
+                },
+                '& .MuiSvgIcon-root': {
+                  color: '#f3f4f6',
+                },
+                '& .MuiDataGrid-overlay': {
+                  backgroundColor: 'rgba(31, 41, 55, 0.9)',
+                  color: '#f3f4f6',
+                },
               },
             },
           }}>
@@ -396,48 +464,43 @@ const UpcomingMeetings: React.FC<UpcomingMeetingsProps> = ({
                 ),
                 noRowsOverlay: CustomNoRowsOverlay,
               }}
-              sx={{
-                borderRadius: '8px',
-                overflow: 'hidden',
-              }}
+              sx={{ borderRadius: '8px', overflow: 'hidden' }}
             />
           </Box>
         </CardContent>
       </Card>
 
       <Dialog open={isInfoOpen} onOpenChange={setIsInfoOpen}>
-        <DialogContent className="dark:bg-slate-900 dark:border-slate-800 dark:text-slate-300 max-w-md">
+        <DialogContent className="bg-white dark:bg-gray-900 border dark:border-gray-800 text-gray-700 dark:text-gray-300 max-w-md">
           <DialogHeader>
-            <DialogTitle className="dark:text-white">Meeting Details</DialogTitle>
-            <DialogDescription className="dark:text-slate-400">
-              Complete information about the selected meeting
-            </DialogDescription>
+            <DialogTitle className="text-gray-900 dark:text-gray-100">Meeting Details</DialogTitle>
+            <DialogDescription className="text-gray-500 dark:text-gray-400">Complete information about the selected meeting</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-2">
             {selectedMeeting && (
               <>
                 <div className="grid grid-cols-3 gap-2 text-xs">
-                  <div className="font-medium dark:text-slate-400">Meeting ID:</div>
-                  <div className="col-span-2 dark:text-slate-200">{selectedMeeting.meetingId}</div>
+                  <div className="font-medium text-gray-600 dark:text-gray-400">Meeting ID:</div>
+                  <div className="col-span-2 text-gray-900 dark:text-gray-200">{selectedMeeting.meetingId}</div>
                 </div>
                 <div className="grid grid-cols-3 gap-2 text-xs">
-                  <div className="font-medium dark:text-slate-400">Password:</div>
-                  <div className="col-span-2 dark:text-slate-200">{selectedMeeting.password || 'N/A'}</div>
+                  <div className="font-medium text-gray-600 dark:text-gray-400">Password:</div>
+                  <div className="col-span-2 text-gray-900 dark:text-gray-200">{selectedMeeting.password || 'N/A'}</div>
                 </div>
                 <div className="grid grid-cols-3 gap-2 text-xs">
-                  <div className="font-medium dark:text-slate-400">Quantity:</div>
-                  <div className="col-span-2 dark:text-slate-200">{selectedMeeting.quantity}</div>
+                  <div className="font-medium text-gray-600 dark:text-gray-400">Quantity:</div>
+                  <div className="col-span-2 text-gray-900 dark:text-gray-200">{selectedMeeting.quantity}</div>
                 </div>
                 <div className="grid grid-cols-3 gap-2 text-xs">
-                  <div className="font-medium dark:text-slate-400">Duration:</div>
-                  <div className="col-span-2 dark:text-slate-200">{selectedMeeting.duration} minutes</div>
+                  <div className="font-medium text-gray-600 dark:text-gray-400">Duration:</div>
+                  <div className="col-span-2 text-gray-900 dark:text-gray-200">{selectedMeeting.duration} minutes</div>
                 </div>
                 <div className="grid grid-cols-3 gap-2 text-xs">
-                  <div className="font-medium dark:text-slate-400">Country:</div>
-                  <div className="col-span-2 dark:text-slate-200">{countries[selectedMeeting.countryCode] || selectedMeeting.countryCode}</div>
+                  <div className="font-medium text-gray-600 dark:text-gray-400">Country:</div>
+                  <div className="col-span-2 text-gray-900 dark:text-gray-200">{countries[selectedMeeting.countryCode] || selectedMeeting.countryCode}</div>
                 </div>
                 <div className="grid grid-cols-3 gap-2 text-xs">
-                  <div className="font-medium dark:text-slate-400">Status:</div>
+                  <div className="font-medium text-gray-600 dark:text-gray-400">Status:</div>
                   <div className="col-span-2">
                     <span
                       className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium ${
@@ -451,28 +514,22 @@ const UpcomingMeetings: React.FC<UpcomingMeetingsProps> = ({
                   </div>
                 </div>
                 <div className="grid grid-cols-3 gap-2 text-xs">
-                  <div className="font-medium dark:text-slate-400">Bots:</div>
-                  <div className="col-span-2 dark:text-slate-200">
-                    {selectedMeeting.bots?.length || selectedMeeting.quantity || 0}
-                  </div>
+                  <div className="font-medium text-gray-600 dark:text-gray-400">Bots:</div>
+                  <div className="col-span-2 text-gray-900 dark:text-gray-200">{selectedMeeting.bots.length}</div>
                 </div>
                 <div className="grid grid-cols-3 gap-2 text-xs">
-                  <div className="font-medium dark:text-slate-400">Created At:</div>
-                  <div className="col-span-2 dark:text-slate-200">
+                  <div className="font-medium text-gray-600 dark:text-gray-400">Created At:</div>
+                  <div className="col-span-2 text-gray-900 dark:text-gray-200">
                     {selectedMeeting.createdAt ? formatDate(selectedMeeting.createdAt) : 'N/A'}
                   </div>
                 </div>
                 <div className="grid grid-cols-3 gap-2 text-xs">
-                  <div className="font-medium dark:text-slate-400">Scheduled Date:</div>
-                  <div className="col-span-2 dark:text-slate-200">
-                    {selectedMeeting.scheduledDate || 'N/A'}
-                  </div>
+                  <div className="font-medium text-gray-600 dark:text-gray-400">Scheduled Date:</div>
+                  <div className="col-span-2 text-gray-900 dark:text-gray-200">{selectedMeeting.scheduledDate || 'N/A'}</div>
                 </div>
                 <div className="grid grid-cols-3 gap-2 text-xs">
-                  <div className="font-medium dark:text-slate-400">Scheduled Time:</div>
-                  <div className="col-span-2 dark:text-slate-200">
-                    {selectedMeeting.scheduledTime || 'N/A'}
-                  </div>
+                  <div className="font-medium text-gray-600 dark:text-gray-400">Scheduled Time:</div>
+                  <div className="col-span-2 text-gray-900 dark:text-gray-200">{selectedMeeting.scheduledTime || 'N/A'}</div>
                 </div>
               </>
             )}
@@ -480,14 +537,14 @@ const UpcomingMeetings: React.FC<UpcomingMeetingsProps> = ({
           <div className="flex justify-between mt-4">
             <Button
               variant="outline"
-              className="dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300"
+              className="bg-gray-50 dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
               onClick={() => selectedMeeting && handleRejoin(selectedMeeting)}
             >
               <RefreshCw className="h-3 w-3 mr-1" />
               Rejoin
             </Button>
             <DialogClose asChild>
-              <Button variant="outline" className="dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300">
+              <Button variant="outline" className="bg-gray-50 dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
                 Close
               </Button>
             </DialogClose>

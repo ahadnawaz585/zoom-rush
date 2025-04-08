@@ -1,17 +1,15 @@
 import { collection, addDoc, getDocs, updateDoc, deleteDoc, doc, query, where, serverTimestamp, getDoc } from 'firebase/firestore';
-import { firestore } from '@/lib/firebase'; // Assuming this is where your Firestore instance is initialized
+import { firestore } from '@/lib/firebase';
 
-// Define Bot interface
 export interface Bot {
-  id: string; // Changed from number to string to match MeetingForm generation
+  id: string;
   name: string;
   countryCode: string;
   country?: string;
-  status?: string; // Made optional as it's not always used
+  status: string; // Changed from string | undefined to string
   flag?: string;
 }
 
-// Define Schedule interface matching MeetingForm and UpcomingMeetings
 export interface Schedule {
   id: string;
   meetingId: string;
@@ -24,16 +22,14 @@ export interface Schedule {
   status: 'scheduled' | 'cancelled' | 'completed';
   bots: Bot[];
   userId: string;
-  createdAt: any; // Compatible with serverTimestamp
-  updatedAt?: any; // Optional field for updates
+  createdAt: any;
+  updatedAt?: any;
 }
 
-// Collections
 export const previousSchedulesCollection = collection(firestore, 'previousSchedules');
 export const upcomingMeetingsCollection = collection(firestore, 'upcomingMeetings');
 
-// Previous Schedules
-export const savePreviousSchedule = async (schedule: Omit<Schedule, 'id' | 'createdAt'>) => {
+export const savePreviousSchedule = async (schedule: Omit<Schedule, 'id' | 'createdAt'>): Promise<string> => {
   try {
     const docRef = await addDoc(previousSchedulesCollection, {
       ...schedule,
@@ -63,11 +59,20 @@ export const getPreviousSchedules = async (userId: string): Promise<Schedule[]> 
   }
 };
 
-// Upcoming Meetings
 export const saveUpcomingMeeting = async (meeting: Omit<Schedule, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> => {
   try {
+    const normalizedBots = meeting.bots.map(bot => ({
+      id: bot.id,
+      name: bot.name,
+      countryCode: bot.countryCode,
+      country: bot.country || '',
+      status: bot.status || 'Ready',
+      flag: bot.flag || ''
+    }));
+
     const docRef = await addDoc(upcomingMeetingsCollection, {
       ...meeting,
+      bots: normalizedBots,
       createdAt: serverTimestamp()
     });
     return docRef.id;
@@ -82,7 +87,7 @@ export const getUpcomingMeetings = async (userId: string): Promise<Schedule[]> =
     const q = query(
       upcomingMeetingsCollection,
       where('userId', '==', userId),
-      where('status', '!=', 'completed') // Only get non-completed meetings
+      where('status', 'in', ['scheduled', 'cancelled'])
     );
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({
@@ -122,14 +127,9 @@ export const getMeetingById = async (meetingId: string): Promise<Schedule | null
   try {
     const meetingRef = doc(upcomingMeetingsCollection, meetingId);
     const meetingSnap = await getDoc(meetingRef);
-    
     if (meetingSnap.exists()) {
-      return { 
-        id: meetingSnap.id,
-        ...meetingSnap.data() 
-      } as Schedule;
+      return { id: meetingSnap.id, ...meetingSnap.data() } as Schedule;
     }
-    
     return null;
   } catch (error) {
     console.error('Error fetching meeting by ID:', error);
@@ -150,24 +150,17 @@ export const getAllUpcomingMeetings = async (): Promise<Schedule[]> => {
   }
 };
 
-// New function to move completed meetings to previous schedules
 export const completeUpcomingMeeting = async (meetingId: string): Promise<void> => {
   try {
     const meeting = await getMeetingById(meetingId);
     if (!meeting) throw new Error('Meeting not found');
 
-    // Update status in upcoming meetings
     await updateUpcomingMeeting(meetingId, { status: 'completed' });
-
-    // Save to previous schedules
     const { id, ...meetingWithoutId } = meeting;
     await savePreviousSchedule({
       ...meetingWithoutId,
       status: 'completed'
     });
-
-    // Optional: Delete from upcoming meetings after moving
-    // await deleteUpcomingMeeting(meetingId);
   } catch (error) {
     console.error('Error completing upcoming meeting:', error);
     throw error;

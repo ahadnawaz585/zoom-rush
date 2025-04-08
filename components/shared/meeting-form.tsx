@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -22,42 +22,21 @@ import {
   SelectValue
 } from "@/components/ui/select";
 import { Country } from "@/services/countryApi";
-import { useEffect, useRef } from "react";
 import { toast } from "@/hooks/use-toast";
 import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
+import Cookies from 'js-cookie';
+import { saveUpcomingMeeting } from '@/lib/firebase/schedule';
 
-// Update form schema to include scheduling fields
 const formSchema = z.object({
-  meetingId: z
-    .string()
-    .min(9, "Meeting ID must be at least 9 characters")
-    .max(11, "Meeting ID must not exceed 11 characters"),
-  password: z
-    .string()
-    .min(1, "Password is required"),
-  quantity: z
-    .number()
-    .min(1, "Quantity must be between 1 and 200")
-    .max(200, "Quantity must be between 1 and 200")
-    .default(5),
-  duration: z
-    .number()
-    .min(1, "Duration must be between 1 and 120 minutes")
-    .max(120, "Duration must be between 1 and 120 minutes")
-    .default(30),
-  countryCode: z
-    .string()
-    .min(1, "Please select a country"),
-  isScheduled: z
-    .boolean()
-    .default(false),
-  scheduledDate: z
-    .string()
-    .optional(),
-  scheduledTime: z
-    .string()
-    .optional(),
+  meetingId: z.string().min(9, "Meeting ID must be at least 9 characters").max(11, "Meeting ID must not exceed 11 characters"),
+  password: z.string().min(1, "Password is required"),
+  quantity: z.number().min(1, "Quantity must be between 1 and 200").max(200, "Quantity must be between 1 and 200").default(10),
+  duration: z.number().min(1, "Duration must be between 1 and 120 minutes").max(120, "Duration must be between 1 and 120 minutes").default(60),
+  countryCode: z.string().min(1, "Please select a country"),
+  isScheduled: z.boolean().default(false),
+  scheduledDate: z.string().optional(),
+  scheduledTime: z.string().optional(),
 });
 
 interface MeetingFormProps {
@@ -85,7 +64,7 @@ export default function MeetingForm({
 }: MeetingFormProps) {
   const [isScheduleMode, setIsScheduleMode] = useState(false);
   const [quantityError, setQuantityError] = useState<string | null>(null);
-  const [internalQuantity, setInternalQuantity] = useState<string>("5");
+  const [internalQuantity, setInternalQuantity] = useState<string>("10");
   const [isFormValid, setIsFormValid] = useState<boolean>(true);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [countryChanged, setCountryChanged] = useState<boolean>(false);
@@ -99,9 +78,9 @@ export default function MeetingForm({
     defaultValues: {
       meetingId: formValues?.meetingId || "",
       password: formValues?.password || "",
-      quantity: formValues?.quantity || 5,
-      duration: formValues?.duration || 30,
-      countryCode: formValues?.countryCode || "US",
+      quantity: formValues?.quantity || 10,
+      duration: formValues?.duration || 60,
+      countryCode: formValues?.countryCode || "IN",
       isScheduled: false,
       scheduledDate: "",
       scheduledTime: "",
@@ -109,36 +88,12 @@ export default function MeetingForm({
     mode: "onChange"
   });
 
-  
-
   useEffect(() => {
     if (formValues?.quantity) {
       setInternalQuantity(formValues.quantity.toString());
       validateQuantity(formValues.quantity);
     }
   }, [formValues?.quantity]);
-
-  const validateQuantity = (value: number | string): boolean => {
-    const numValue = typeof value === 'string' ? parseInt(value, 10) : value;
-    
-    if (isNaN(numValue)) {
-      setQuantityError("Please enter a valid number");
-      setIsFormValid(false);
-      return false;
-    } else if (numValue > 200) {
-      setQuantityError("Cannot generate more than 200 bots");
-      setIsFormValid(false);
-      return false;
-    } else if (numValue < 1) {
-      setQuantityError("Quantity must be at least 1");
-      setIsFormValid(false);
-      return false;
-    } else {
-      setQuantityError(null);
-      setIsFormValid(true);
-      return true;
-    }
-  };
 
   useEffect(() => {
     if (formValues) {
@@ -150,241 +105,189 @@ export default function MeetingForm({
     }
   }, [formValues, form]);
 
- 
+  const validateQuantity = (value: number | string): boolean => {
+    const numValue = typeof value === 'string' ? parseInt(value, 10) : value;
+    if (isNaN(numValue) || numValue < 1) {
+      setQuantityError("Quantity must be at least 1");
+      setIsFormValid(false);
+      return false;
+    } else if (numValue > 200) {
+      setQuantityError("Cannot generate more than 200 bots");
+      setIsFormValid(false);
+      return false;
+    } else {
+      setQuantityError(null);
+      setIsFormValid(true);
+      return true;
+    }
+  };
 
   const handleCountryChange = (code: string) => {
     form.setValue("countryCode", code);
     setCountryChanged(true);
-    if (onFormChange) {
-      onFormChange({ countryCode: code });
-    }
+    onFormChange?.({ countryCode: code });
   };
 
   const handleQuantityChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const rawValue = event.target.value.replace(/^0+/, '') || '';
     setInternalQuantity(rawValue);
-    
     const quantity = rawValue === '' ? 0 : parseInt(rawValue, 10);
-    
     validateQuantity(quantity);
     form.setValue("quantity", quantity);
-    
-    if (onFormChange) {
-      onFormChange({ quantity });
-    }
+    onFormChange?.({ quantity });
   };
 
   const downloadTemplateFile = () => {
     try {
-      // Create sample data for the template using the data from the image
       const sampleData = [
         { name: "RAHUL", country: "India", countryCode: "IN" },
         { name: "AMIT", country: "India", countryCode: "IN" },
-        { name: "VIKRAM", country: "India", countryCode: "IN" },
-        { name: "ARJUN", country: "India", countryCode: "IN" },
-        { name: "ROHIT", country: "India", countryCode: "IN" }
       ];
-      
-      
-      // Create worksheet
       const ws = XLSX.utils.json_to_sheet(sampleData);
-      
-      // Add column descriptions in the first row
-      XLSX.utils.sheet_add_aoa(ws, [
-        ["Bot Name (Required)", "Country Name (Optional)", "Country Code (Required)"]
-      ], { origin: "A1" });
-      
-      // Adjust column widths
-      const wscols = [
-        { wch: 20 }, // Bot Name
-        { wch: 25 }, // Country Name
-        { wch: 15 }  // Country Code
-      ];
+      XLSX.utils.sheet_add_aoa(ws, [["Bot Name (Required)", "Country Name (Optional)", "Country Code (Required)"]], { origin: "A1" });
+      const wscols = [{ wch: 20 }, { wch: 25 }, { wch: 15 }];
       ws['!cols'] = wscols;
-      
-      // Create workbook
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Bot Template");
-      
-      // Generate filename
-      const fileName = "botsname.xlsx";
-      
-      // Save file
-      XLSX.writeFile(wb, fileName);
-      
-      toast({
-        title: "Success",
-        description: `Template downloaded as ${fileName}`,
-        variant: "default"
-      });
+      XLSX.writeFile(wb, "botsname.xlsx");
+      toast({ title: "Success", description: "Template downloaded", variant: "default" });
     } catch (error) {
       console.error("Error downloading template:", error);
-      toast({
-        title: "Error",
-        description: "Failed to download template file",
-        variant: "destructive"
-      });
+      toast({ title: "Error", description: "Failed to download template", variant: "destructive" });
     }
   };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    
+
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
         const data = new Uint8Array(e.target?.result as ArrayBuffer);
         const workbook = XLSX.read(data, { type: "array" });
-        
-        // Get first sheet
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        
-        // Convert to JSON with more flexible parsing
-        const jsonData = XLSX.utils.sheet_to_json(worksheet, { 
-          header: 1,  // Treat first row as headers
-          blankrows: false  // Skip blank rows
-        }) as any[];
-        
-        // Remove header row
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[];
         const headers = jsonData.shift();
-        
-        // Custom mapping to ensure consistent data structure
         const mappedData = jsonData.map(row => ({
-          name: row[0],  // Assuming first column is name
-          countryCode: row[2] || row[1],  // Country code can be in 2nd or 3rd column
-          country: row[1] || ''  // Optional country name
+          name: row[0],
+          countryCode: row[2] || row[1],
+          country: row[1] || ''
         })).filter(row => row.name && row.countryCode);
-        
-        // Validate data
-        if (mappedData.length === 0) {
-          throw new Error("No valid data found in the Excel file");
-        }
-        
-        if (mappedData.length > 200) {
-          throw new Error(`File contains ${mappedData.length} bots, but maximum allowed is 200`);
-        }
-        
-        // Normalize country codes to uppercase
-        mappedData.forEach(row => {
-          row.countryCode = row.countryCode.toString().toUpperCase();
-        });
-        
-        // Set imported data
+
+        if (mappedData.length === 0) throw new Error("No valid data found");
+        if (mappedData.length > 200) throw new Error(`File contains ${mappedData.length} bots, maximum allowed is 200`);
+
+        mappedData.forEach(row => row.countryCode = row.countryCode.toString().toUpperCase());
         setImportedBots(mappedData);
         setIsImportMode(true);
         setInternalQuantity(mappedData.length.toString());
         form.setValue("quantity", mappedData.length);
-        
-        toast({
-          title: "Success",
-          description: `Loaded ${mappedData.length} bots from Excel file`,
-          variant: "default"
-        });
+        toast({ title: "Success", description: `Loaded ${mappedData.length} bots`, variant: "default" });
       } catch (error) {
         console.error("Error parsing Excel file:", error);
-        toast({
-          title: "Error",
-          description: error instanceof Error ? error.message : "Failed to parse Excel file",
-          variant: "destructive"
-        });
-        
-        // Reset file input
-        if (fileInputRef.current) {
-          fileInputRef.current.value = "";
-        }
+        toast({ title: "Error", description: error instanceof Error ? error.message : "Failed to parse file", variant: "destructive" });
+        if (fileInputRef.current) fileInputRef.current.value = "";
       }
     };
-    
     reader.readAsArrayBuffer(file);
   };
-  
+
   const cancelImport = () => {
     setIsImportMode(false);
     setImportedBots(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    form.trigger().then(isValid => {
+
+    await form.trigger().then(async (isValid) => {
       if (!isValid) {
-        toast({
-          title: "Validation Error",
-          description: "Please fix the errors in the form",
-          variant: "destructive"
-        });
+        toast({ title: "Validation Error", description: "Please fix the errors", variant: "destructive" });
         return;
       }
-      
+
       const values = form.getValues();
+      const userId = Cookies.get('session');
 
       if (isScheduleMode) {
-        // Handle scheduled meeting
         if (!values.scheduledDate || !values.scheduledTime) {
-          toast({
-            title: "Validation Error",
-            description: "Please select both date and time for scheduling",
-            variant: "destructive"
-          });
+          toast({ title: "Validation Error", description: "Please select date and time", variant: "destructive" });
           return;
         }
 
         const scheduledDateTime = new Date(`${values.scheduledDate}T${values.scheduledTime}`);
         if (scheduledDateTime < new Date()) {
-          toast({
-            title: "Invalid Schedule",
-            description: "Please select a future date and time",
-            variant: "destructive"
-          });
+          toast({ title: "Invalid Schedule", description: "Select a future date and time", variant: "destructive" });
           return;
         }
 
-        if (onScheduleMeeting) {
-          onScheduleMeeting({
-            ...values,
-            isScheduled: true
-          });
+        if (!userId) {
+          toast({ title: "Error", description: "Please log in to schedule", variant: "destructive" });
+          return;
+        }
+
+        const bots = isImportMode && importedBots
+          ? importedBots.map((bot, index) => ({
+              id: index.toString(),
+              name: bot.name,
+              countryCode: bot.countryCode,
+              status: "Ready"
+            }))
+          : Array.from({ length: values.quantity }, (_, index) => ({
+              id: index.toString(),
+              name: `Bot-${index + 1}`,
+              countryCode: values.countryCode,
+              status: "Ready"
+            }));
+
+        const meetingData = {
+          meetingId: values.meetingId,
+          password: values.password,
+          quantity: values.quantity,
+          duration: values.duration,
+          countryCode: values.countryCode,
+          scheduledDate: values.scheduledDate,
+          scheduledTime: values.scheduledTime,
+          status: 'scheduled' as const,
+          bots,
+          userId
+        };
+
+        try {
+          await saveUpcomingMeeting(meetingData);
+          onScheduleMeeting?.({ ...values, isScheduled: true });
+          toast({ title: "Success", description: "Meeting scheduled successfully", variant: "default" });
+          form.reset({ ...form.getValues(), meetingId: "", password: "", scheduledDate: "", scheduledTime: "" });
+          setIsScheduleMode(false);
+          setImportedBots(null);
+          setIsImportMode(false);
+          setInternalQuantity("10");
+        } catch (error) {
+          console.error('Error scheduling meeting:', error);
+          toast({ title: "Error", description: "Failed to schedule meeting", variant: "destructive" });
         }
         return;
       }
-      
-      // Handle immediate meeting
+
       if (isImportMode && importedBots) {
-        // Import mode - use imported bots
         if (importedBots.length > 200) {
-          toast({
-            title: "Error",
-            description: "Cannot import more than 200 bots. Please reduce the quantity in your Excel file.",
-            variant: "destructive"
-          });
+          toast({ title: "Error", description: "Cannot import more than 200 bots", variant: "destructive" });
           return;
         }
-        
         setIsImporting(true);
-        
         setTimeout(() => {
           onBotsGenerated(importedBots.length, "", importedBots);
           setIsImporting(false);
         }, 500);
       } else {
-        // Normal generation mode
         if (!validateQuantity(values.quantity)) {
-          toast({
-            title: "Error",
-            description: "Cannot generate more than 200 bots. Please reduce the quantity.",
-            variant: "destructive"
-          });
+          toast({ title: "Error", description: "Invalid quantity", variant: "destructive" });
           return;
         }
-        
         setIsGenerating(true);
-        
         setTimeout(() => {
           onBotsGenerated(values.quantity, values.countryCode);
           setIsGenerating(false);
@@ -394,7 +297,6 @@ export default function MeetingForm({
     });
   };
 
-  
   return (
     <Card className="bg-white dark:bg-gray-900 shadow-md flex flex-col h-full border dark:border-gray-800">
       <CardHeader className="bg-[#F8F8F8] dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-3 sm:px-6 py-4 flex-shrink-0">
@@ -455,13 +357,11 @@ export default function MeetingForm({
                       <FormControl>
                         <Input 
                           placeholder="Enter Zoom meeting ID" 
-                          className="border-gray-300 dark:border-gray-700 focus:border-[#0E72ED] focus:ring-[#0E72ED] h-10 bg-white dark:bg-gray-800 dark:text-gray-100 focus:bg-white dark:focus:bg-gray-800 active:bg-white dark:active:bg-gray-800"
+                          className="border-gray-300 dark:border-gray-700 focus:border-[#0E72ED] focus:ring-[#0E72ED] h-10 bg-white dark:bg-gray-800 dark:text-gray-100"
                           {...field} 
                           onChange={(e) => {
                             field.onChange(e);
-                            if (onFormChange) {
-                              onFormChange({ meetingId: e.target.value });
-                            }
+                            onFormChange?.({ meetingId: e.target.value });
                           }}
                         />
                       </FormControl>
@@ -469,7 +369,6 @@ export default function MeetingForm({
                     </FormItem>
                   )}
                 />
-
                 <FormField
                   control={form.control}
                   name="password"
@@ -484,9 +383,7 @@ export default function MeetingForm({
                           {...field}
                           onChange={(e) => {
                             field.onChange(e);
-                            if (onFormChange) {
-                              onFormChange({ password: e.target.value });
-                            }
+                            onFormChange?.({ password: e.target.value });
                           }}
                         />
                       </FormControl>
@@ -495,7 +392,6 @@ export default function MeetingForm({
                   )}
                 />
               </div>
-
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <FormField
                   control={form.control}
@@ -523,9 +419,7 @@ export default function MeetingForm({
                               setInternalQuantity("1");
                               form.setValue("quantity", 1);
                               validateQuantity(1);
-                              if (onFormChange) {
-                                onFormChange({ quantity: 1 });
-                              }
+                              onFormChange?.({ quantity: 1 });
                             }
                             onBlur();
                           }}
@@ -544,7 +438,6 @@ export default function MeetingForm({
                     </FormItem>
                   )}
                 />
-
                 <FormField
                   control={form.control}
                   name="duration"
@@ -566,9 +459,7 @@ export default function MeetingForm({
                           onChange={(e) => {
                             const value = parseInt(e.target.value.replace(/^0+/, ''), 10) || 0;
                             field.onChange(value);
-                            if (onFormChange) {
-                              onFormChange({ duration: value });
-                            }
+                            onFormChange?.({ duration: value });
                           }}
                         />
                       </FormControl>
@@ -576,7 +467,6 @@ export default function MeetingForm({
                     </FormItem>
                   )}
                 />
-
                 <FormField
                   control={form.control}
                   name="countryCode"
@@ -603,7 +493,7 @@ export default function MeetingForm({
                         </FormControl>
                         <SelectContent className="max-h-60 dark:bg-gray-800 dark:border-gray-700">
                           {countries.map((country) => (
-                            <SelectItem key={country.code} value={country.code} className="dark:text-gray-100 dark:focus:bg-gray-700 dark:data-[state=checked]:bg-blue-900">
+                            <SelectItem key={country.code} value={country.code} className="dark:text-gray-100 dark:focus:bg-gray-700">
                               {country.name}
                             </SelectItem>
                           ))}
@@ -613,7 +503,7 @@ export default function MeetingForm({
                             </SelectItem>
                           )}
                           {countries.length === 0 && !isLoading && (
-                            <SelectItem value="US" className="dark:text-gray-100">United States</SelectItem>
+                            <SelectItem value="IN" className="dark:text-gray-100">India</SelectItem>
                           )}
                         </SelectContent>
                       </Select>
@@ -627,23 +517,20 @@ export default function MeetingForm({
                   )}
                 />
               </div>
-              
               {isImportMode && (
                 <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md p-3 mt-2">
                   <div className="flex justify-between items-center">
                     <div>
-                      <p className="text-sm font-medium text-blue-700 dark:text-blue-300">
-                        Excel Import Mode Active
-                      </p>
+                      <p className="text-sm font-medium text-blue-700 dark:text-blue-300">Excel Import Mode Active</p>
                       <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                        {importedBots?.length || 0} bots will be created with country settings from the file
+                        {importedBots?.length || 0} bots will be created
                       </p>
                     </div>
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="h-8 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-800/50"
+                      className="h-8 border-blue-200 dark:border-blue-200 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-800/50"
                       onClick={cancelImport}
                     >
                       <X className="h-3.5 w-3.5 mr-1" />
@@ -652,50 +539,54 @@ export default function MeetingForm({
                   </div>
                 </div>
               )}
+              {isScheduleMode && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <FormField
+                    control={form.control}
+                    name="scheduledDate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-[#747487] dark:text-gray-300 font-medium text-sm">Schedule Date</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="date"
+                            min={format(new Date(), 'yyyy-MM-dd')}
+                            className="border-gray-300 dark:border-gray-700 focus:border-[#0E72ED] focus:ring-[#0E72ED] h-10 bg-white dark:bg-gray-800 dark:text-gray-100"
+                            {...field}
+                            onChange={(e) => {
+                              field.onChange(e);
+                              onFormChange?.({ scheduledDate: e.target.value });
+                            }}
+                          />
+                        </FormControl>
+                        <FormMessage className="text-red-500 dark:text-red-400 text-xs" />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="scheduledTime"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-[#747487] dark:text-gray-300 font-medium text-sm">Schedule Time</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="time"
+                            className="border-gray-300 dark:border-gray-700 focus:border-[#0E72ED] focus:ring-[#0E72ED] h-10 bg-white dark:bg-gray-800 dark:text-gray-100"
+                            {...field}
+                            onChange={(e) => {
+                              field.onChange(e);
+                              onFormChange?.({ scheduledTime: e.target.value });
+                            }}
+                          />
+                        </FormControl>
+                        <FormMessage className="text-red-500 dark:text-red-400 text-xs" />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              )}
             </div>
-
-
-            {isScheduleMode && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FormField
-                  control={form.control}
-                  name="scheduledDate"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-[#747487] dark:text-gray-300 font-medium text-sm">Schedule Date</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="date"
-                          min={format(new Date(), 'yyyy-MM-dd')}
-                          className="border-gray-300 dark:border-gray-700 focus:border-[#0E72ED] focus:ring-[#0E72ED] h-10 bg-white dark:bg-gray-800 dark:text-gray-100"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage className="text-red-500 dark:text-red-400 text-xs" />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="scheduledTime"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-[#747487] dark:text-gray-300 font-medium text-sm">Schedule Time</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="time"
-                          className="border-gray-300 dark:border-gray-700 focus:border-[#0E72ED] focus:ring-[#0E72ED] h-10 bg-white dark:bg-gray-800 dark:text-gray-100"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage className="text-red-500 dark:text-red-400 text-xs" />
-                    </FormItem>
-                  )}
-                />
-              </div>
-            )}
-
             <div className="flex flex-col sm:flex-row gap-3 mt-auto pt-4 border-t border-gray-100 dark:border-gray-800">
               <Button
                 type="submit"
@@ -716,22 +607,13 @@ export default function MeetingForm({
                   isImportMode ? "Import Bots" : "Generate Bots"
                 )}
               </Button>
-              
               {!isScheduleMode && (
                 <Button
                   type="button"
                   onClick={() => {
                     form.trigger().then(isValid => {
-                      if (isValid) {
-                        const values = form.getValues();
-                        onJoinMeeting(values);
-                      } else {
-                        toast({
-                          title: "Validation Error",
-                          description: "Please fix the errors in the form",
-                          variant: "destructive"
-                        });
-                      }
+                      if (isValid) onJoinMeeting(form.getValues());
+                      else toast({ title: "Validation Error", description: "Please fix the errors", variant: "destructive" });
                     });
                   }}
                   disabled={!hasGeneratedBots || isJoining || !form.getValues().meetingId || isGenerating || isImporting}
@@ -757,60 +639,3 @@ export default function MeetingForm({
     </Card>
   );
 }
-
-//             <div className="flex flex-col sm:flex-row gap-3 mt-auto pt-4 border-t border-gray-100 dark:border-gray-800">
-//               <Button
-//                 type="submit"
-//                 className="flex-1 bg-[#0E72ED] hover:bg-[#0B5CCA] dark:bg-blue-700 dark:hover:bg-blue-800 text-white font-medium h-10 rounded-md"
-//                 disabled={isLoading || isGenerating || isImporting || !isFormValid}
-//                 onClick={() => {
-//                   form.trigger();
-//                 }}
-//               >
-//                 {isGenerating || isLoading || isImporting ? (
-//                   <>
-//                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-//                     {isImporting ? "Importing..." : countryChanged ? "Updating..." : "Generating..."}
-//                   </>
-//                 ) : (
-//                   isImportMode ? "Import Bots" : "Generate Bots"
-//                 )}
-//               </Button>
-//               <Button
-//                 type="button"
-//                 onClick={() => {
-//                   form.trigger().then(isValid => {
-//                     if (isValid) {
-//                       const values = form.getValues();
-//                       onJoinMeeting(values);
-//                     } else {
-//                       toast({
-//                         title: "Validation Error",
-//                         description: "Please fix the errors in the form",
-//                         variant: "destructive"
-//                       });
-//                     }
-//                   });
-//                 }}
-//                 disabled={!hasGeneratedBots || isJoining || !form.getValues().meetingId || isGenerating || isImporting}
-//                 className="bg-[#27AE60] hover:bg-[#219653] dark:bg-green-700 dark:hover:bg-green-800 text-white font-medium h-10 rounded-md"
-//               >
-//                 {isJoining ? (
-//                   <>
-//                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-//                     Joining...
-//                   </>
-//                 ) : (
-//                   <>
-//                     <Play className="w-4 h-4 mr-2" />
-//                     Join Meeting
-//                   </>
-//                 )}
-//               </Button>
-//             </div>
-//           </form>
-//         </Form>
-//       </CardContent>
-//     </Card>
-//   );
-// }
