@@ -328,9 +328,9 @@ const joinMeeting = useCallback(async (joinFormValues: FormValues) => {
       password: joinFormValues.password,
       duration: joinFormValues.duration
     };
-    const url = process.env.NEXT_PUBLIC_SERVER_URL || 'http://207.180.230.181:3000';
+    const url = process.env.NEXT_PUBLIC_SERVER_URL || 'https://zoomnrush.com/zoombotic';
 
-    const response = await fetch(`${url}/api/join-meeting`, {
+    const response = await fetch(`${url}/join-meeting`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(requestBody),
