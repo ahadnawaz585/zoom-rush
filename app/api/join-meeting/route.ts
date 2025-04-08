@@ -182,7 +182,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "No bots provided" }, { status: 400 });
   }
 
-  const origin = process.env.NEXT_PUBLIC_ZOOM_REDIRECT_URI || req.headers.get("origin") || "";
+  const origin = process.env.NEXT_PUBLIC_CLIENT_URL || 'https://zoom-bots.vercel.app' ;
   console.log(`[${new Date().toISOString()}] Using origin: ${origin}`);
   const signature = generateSignature(meetingId, 0, duration);
 

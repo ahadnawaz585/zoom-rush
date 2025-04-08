@@ -328,6 +328,7 @@ const joinMeeting = useCallback(async (joinFormValues: FormValues) => {
       password: joinFormValues.password,
       duration: joinFormValues.duration
     };
+    const url = process.env.NEXT_PUBLIC_SERVER_URL || 'http://207.180.230.181:3000';
 
     const response = await fetch("/api/join-meeting", {
       method: "POST",
