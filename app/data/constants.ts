@@ -1,3 +1,4 @@
+// utils/constants.ts
 export const countries = {
   US: "United States",
   CA: "Canada",
@@ -32,72 +33,6 @@ export const countries = {
   ZA: "South Africa",
   NG: "Nigeria",
   EG: "Egypt",
-};
+} as const;
 
-
-  export const previousSchedules:any = [
-    {
-      id: 1,
-      meetingId: "123456789",
-      bots: 5,
-      duration: 30,
-      country: "US",
-      status: "Completed",
-      date: "2024-03-20",
-    },
-    {
-      id: 2,
-      meetingId: "987654321",
-      bots: 10,
-      duration: 60,
-      country: "UK",
-      status: "Scheduled",
-      date: "2024-03-25",
-    },
-    {
-      id: 3,
-      meetingId: "456789123",
-      bots: 3,
-      duration: 45,
-      country: "CA",
-      status: "Failed",
-      date: "2024-03-18",
-    },
-    {
-      id: 4,
-      meetingId: "456789123",
-      bots: 3,
-      duration: 45,
-      country: "CA",
-      status: "Failed",
-      date: "2024-03-18",
-    },
-    {
-      id: 5,
-      meetingId: "456789123",
-      bots: 3,
-      duration: 45,
-      country: "CA",
-      status: "Failed",
-      date: "2024-03-18",
-    },
-    {
-      id: 6,
-      meetingId: "456789123",
-      bots: 3,
-      duration: 45,
-      country: "IN",
-      status: "Failed",
-      date: "2024-03-18",
-    },
-    {
-      id: 7,
-      meetingId: "456789123",
-      bots: 120,
-      duration: 45,
-      country: "PK",
-      status: "Scheduled",
-      date: "2024-03-18",
-    },
-  ];
-
+export type CountryCode = keyof typeof countries;
