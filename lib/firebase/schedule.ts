@@ -61,7 +61,7 @@ export const getPreviousSchedules = async (userId: string): Promise<Schedule[]> 
 
 export const saveUpcomingMeeting = async (meeting: Omit<Schedule, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> => {
   try {
-    const normalizedBots = meeting.bots.map(bot => ({
+    const normalizedBots = meeting.bots.map((bot:any) => ({
       id: bot.id,
       name: bot.name,
       countryCode: bot.countryCode,

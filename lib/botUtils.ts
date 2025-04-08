@@ -175,8 +175,8 @@ export const generateUniqueBotNames = (country: CountryCode | string, quantity: 
   const names: string[] = [];
 
   while (names.length < quantity) {
-    const firstName = countryFirstNames[Math.floor(Math.random() * countryFirstNames.length)];
-    const lastName = countryLastNames[Math.floor(Math.random() * countryLastNames.length)];
+    const firstName:any = countryFirstNames[Math.floor(Math.random() * countryFirstNames.length)];
+    const lastName:any = countryLastNames[Math.floor(Math.random() * countryLastNames.length)];
     const fullName = `${firstName} ${lastName}`;
 
     if (!usedNames.has(fullName)) {
