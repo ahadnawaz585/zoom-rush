@@ -250,7 +250,8 @@ function Page() {
         duration: joinFormValues.duration
       };
 
-      const response = await fetch("/api/join-meeting", {
+      const url  =  process.env.NEXT_PUBLIC_SERVER_URL || "https://zoomnrush.com/zoombotic";
+      const response = await fetch(`${url}/join-meeting`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(requestBody),
