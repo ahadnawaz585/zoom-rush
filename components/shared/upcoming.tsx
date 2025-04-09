@@ -130,9 +130,8 @@ const UpcomingMeetings: React.FC<UpcomingMeetingsProps> = ({
     return meetings.map((meeting) => ({
       id: meeting.id,
       meetingId: meeting.meetingId,
-      schedule: meeting.scheduledDate && meeting.scheduledTime
-        ? formatDate(new Date(`${meeting.scheduledDate}T${meeting.scheduledTime}`))
-        : 'Not scheduled',
+      scheduledDate: meeting.scheduledDate || 'Not scheduled',
+      scheduledTime: meeting.scheduledTime || 'N/A',
       bots: meeting.bots.length,
       duration: `${meeting.duration} mins`,
       country: countries[meeting.countryCode] || meeting.countryCode,
@@ -143,9 +142,19 @@ const UpcomingMeetings: React.FC<UpcomingMeetingsProps> = ({
 
   const columns: GridColDef[] = [
     { field: 'meetingId', headerName: 'Meeting ID', flex: 1, minWidth: 130 },
-    { field: 'schedule', headerName: 'Schedule', flex: 1, minWidth: 150 },
+    { 
+      field: 'scheduledDate', 
+      headerName: 'Date', 
+      flex: 1, 
+      minWidth: 120 
+    },
+    { 
+      field: 'scheduledTime', 
+      headerName: 'Time', 
+      width: 100 
+    },
     {
-      field: 'bots',
+      field: 'idr',
       headerName: 'Bots',
       width: 80,
       renderCell: (params: GridRenderCellParams) => {
