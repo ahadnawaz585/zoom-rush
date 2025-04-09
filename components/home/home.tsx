@@ -420,7 +420,7 @@ function Page() {
                   [country.code]: country.name
                 }), {})}
                 onJoinMeeting={handleJoinScheduledMeeting}
-                onRejoin={handleRejoin}
+                // onRejoin={handleRejoin}
                 meetings={upcomingMeetings} // Pass meetings as prop
                 setMeetings={setUpcomingMeetings} // Pass setter to update meetings
               />
