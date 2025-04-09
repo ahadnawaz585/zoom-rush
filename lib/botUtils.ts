@@ -1,12 +1,11 @@
 // utils/botUtils.ts
 import { CountryCode } from '@/app/data/constants';
 import { generateUniqueIndianNames } from './indianNames'; // Adjust path as needed
- // Adjust path as needed
 
 export const generateBotName = (country: CountryCode | string): string => {
   const firstNames: Record<CountryCode | "DEFAULT", string[]> = {
-    US: ["John", "Mary", "James", "Sarah", "Michael", "Elizabeth"],
-    UK: ["Oliver", "Emma", "Harry", "Sophie", "William", "Charlotte"],
+    US: ["John", "Mary", "James", "Sarah", "Michael", "Elizabeth", "Robert", "Jennifer", "David", "Emily", "Thomas", "Jessica"],
+    UK: ["Oliver", "Emma", "Harry", "Sophie", "William", "Charlotte", "George", "Amelia", "Henry", "Isabella", "Jack", "Lily"],
     CA: ["Liam", "Olivia", "Noah", "Emma", "Lucas", "Sophia"],
     FR: ["Lucas", "Emma", "Gabriel", "Léa", "Louis", "Chloé"],
     DE: ["Paul", "Marie", "Felix", "Sophie", "Max", "Anna"],
@@ -15,7 +14,7 @@ export const generateBotName = (country: CountryCode | string): string => {
     JP: ["Haruto", "Yui", "Yuto", "Aoi", "Sota", "Akari"],
     CN: ["Wei", "Xia", "Ming", "Hui", "Li", "Yan"],
     IN: ["Arjun", "Priya", "Arun", "Divya", "Raj", "Anjali"],
-    PK: ["Ali", "Fatima", "Hassan", "Ayesha", "Ahmed", "Zara"],
+    PK: ["Ali", "Fatima", "Hassan", "Ayesha", "Ahmed", "Zara", "Omar", "Sana", "Bilal", "Hina", "Yousuf", "Mariam"],
     BD: ["Rahman", "Aisha", "Kamal", "Nadia", "Hasan", "Mim"],
     ID: ["Budi", "Siti", "Dian", "Putri", "Adi", "Maya"],
     MY: ["Ahmad", "Nurul", "Ibrahim", "Siti", "Mohammed", "Fatimah"],
@@ -27,7 +26,6 @@ export const generateBotName = (country: CountryCode | string): string => {
     AR: ["Santiago", "Sofia", "Mateo", "Isabella", "Benjamin", "Valentina"],
     AU: ["Jack", "Charlotte", "William", "Olivia", "Noah", "Ava"],
     DEFAULT: ["Alex", "Sam", "Jordan", "Taylor", "Morgan", "Casey"],
-    // Add missing countries with defaults or specific names if needed
     MX: ["Juan", "Maria", "Jose", "Rosa", "Miguel", "Clara"],
     CO: ["Santiago", "Sofia", "Mateo", "Isabella", "Juan", "Valentina"],
     NL: ["Lars", "Sophie", "Jan", "Emma", "Thomas", "Julia"],
@@ -43,8 +41,8 @@ export const generateBotName = (country: CountryCode | string): string => {
   };
 
   const lastNames: Record<CountryCode | "DEFAULT", string[]> = {
-    US: ["Smith", "Johnson", "Brown", "Davis", "Wilson", "Anderson"],
-    UK: ["Smith", "Jones", "Williams", "Taylor", "Brown", "Davies"],
+    US: ["Smith", "Johnson", "Brown", "Davis", "Wilson", "Anderson", "Taylor", "Clark", "Lewis", "Walker", "Hall", "Young"],
+    UK: ["Smith", "Jones", "Williams", "Taylor", "Brown", "Davies", "Wilson", "Evans", "Thomas", "Roberts", "Walker", "Hughes"],
     CA: ["Smith", "Brown", "Tremblay", "Martin", "Roy", "Wilson"],
     FR: ["Martin", "Bernard", "Dubois", "Thomas", "Robert", "Richard"],
     DE: ["Mueller", "Schmidt", "Schneider", "Fischer", "Weber", "Meyer"],
@@ -53,7 +51,7 @@ export const generateBotName = (country: CountryCode | string): string => {
     JP: ["Sato", "Suzuki", "Takahashi", "Tanaka", "Watanabe", "Yamamoto"],
     CN: ["Wang", "Li", "Zhang", "Liu", "Chen", "Yang"],
     IN: ["Kumar", "Singh", "Sharma", "Patel", "Verma", "Gupta"],
-    PK: ["Khan", "Ahmed", "Ali", "Malik", "Qureshi", "Syed"],
+    PK: ["Khan", "Ahmed", "Ali", "Malik", "Qureshi", "Syed", "Hussain", "Rahim", "Siddiqui", "Iqbal", "Mahmood", "Raza"],
     BD: ["Islam", "Rahman", "Hossain", "Ahmed", "Akter", "Begum"],
     ID: ["Wijaya", "Suharto", "Sukarno", "Kusuma", "Santoso", "Hidayat"],
     MY: ["Tan", "Lee", "Wong", "Abdullah", "Kumar", "Singh"],
@@ -65,7 +63,6 @@ export const generateBotName = (country: CountryCode | string): string => {
     AR: ["Gonzalez", "Rodriguez", "Fernandez", "Lopez", "Martinez", "Garcia"],
     AU: ["Smith", "Jones", "Williams", "Brown", "Wilson", "Taylor"],
     DEFAULT: ["Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia"],
-    // Add missing countries with defaults or specific names if needed
     MX: ["Garcia", "Rodriguez", "Martinez", "Lopez", "Hernandez", "Gonzalez"],
     CO: ["Rodriguez", "Gomez", "Martinez", "Lopez", "Garcia", "Hernandez"],
     NL: ["De Vries", "Van Dijk", "Jansen", "De Boer", "Visser", "Smit"],
@@ -95,8 +92,8 @@ export const generateUniqueBotNames = (country: CountryCode | string, quantity: 
   }
 
   const firstNames: Record<CountryCode | "DEFAULT", string[]> = {
-    US: ["John", "Mary", "James", "Sarah", "Michael", "Elizabeth"],
-    UK: ["Oliver", "Emma", "Harry", "Sophie", "William", "Charlotte"],
+    US: ["John", "Mary", "James", "Sarah", "Michael", "Elizabeth", "Robert", "Jennifer", "David", "Emily", "Thomas", "Jessica"],
+    UK: ["Oliver", "Emma", "Harry", "Sophie", "William", "Charlotte", "George", "Amelia", "Henry", "Isabella", "Jack", "Lily"],
     CA: ["Liam", "Olivia", "Noah", "Emma", "Lucas", "Sophia"],
     FR: ["Lucas", "Emma", "Gabriel", "Léa", "Louis", "Chloé"],
     DE: ["Paul", "Marie", "Felix", "Sophie", "Max", "Anna"],
@@ -105,7 +102,7 @@ export const generateUniqueBotNames = (country: CountryCode | string, quantity: 
     JP: ["Haruto", "Yui", "Yuto", "Aoi", "Sota", "Akari"],
     CN: ["Wei", "Xia", "Ming", "Hui", "Li", "Yan"],
     IN: ["Arjun", "Priya", "Arun", "Divya", "Raj", "Anjali"],
-    PK: ["Ali", "Fatima", "Hassan", "Ayesha", "Ahmed", "Zara"],
+    PK: ["Ali", "Fatima", "Hassan", "Ayesha", "Ahmed", "Zara", "Omar", "Sana", "Bilal", "Hina", "Yousuf", "Mariam"],
     BD: ["Rahman", "Aisha", "Kamal", "Nadia", "Hasan", "Mim"],
     ID: ["Budi", "Siti", "Dian", "Putri", "Adi", "Maya"],
     MY: ["Ahmad", "Nurul", "Ibrahim", "Siti", "Mohammed", "Fatimah"],
@@ -132,8 +129,8 @@ export const generateUniqueBotNames = (country: CountryCode | string, quantity: 
   };
 
   const lastNames: Record<CountryCode | "DEFAULT", string[]> = {
-    US: ["Smith", "Johnson", "Brown", "Davis", "Wilson", "Anderson"],
-    UK: ["Smith", "Jones", "Williams", "Taylor", "Brown", "Davies"],
+    US: ["Smith", "Johnson", "Brown", "Davis", "Wilson", "Anderson", "Taylor", "Clark", "Lewis", "Walker", "Hall", "Young"],
+    UK: ["Smith", "Jones", "Williams", "Taylor", "Brown", "Davies", "Wilson", "Evans", "Thomas", "Roberts", "Walker", "Hughes"],
     CA: ["Smith", "Brown", "Tremblay", "Martin", "Roy", "Wilson"],
     FR: ["Martin", "Bernard", "Dubois", "Thomas", "Robert", "Richard"],
     DE: ["Mueller", "Schmidt", "Schneider", "Fischer", "Weber", "Meyer"],
@@ -142,7 +139,7 @@ export const generateUniqueBotNames = (country: CountryCode | string, quantity: 
     JP: ["Sato", "Suzuki", "Takahashi", "Tanaka", "Watanabe", "Yamamoto"],
     CN: ["Wang", "Li", "Zhang", "Liu", "Chen", "Yang"],
     IN: ["Kumar", "Singh", "Sharma", "Patel", "Verma", "Gupta"],
-    PK: ["Khan", "Ahmed", "Ali", "Malik", "Qureshi", "Syed"],
+    PK: ["Khan", "Ahmed", "Ali", "Malik", "Qureshi", "Syed", "Hussain", "Rahim", "Siddiqui", "Iqbal", "Mahmood", "Raza"],
     BD: ["Islam", "Rahman", "Hossain", "Ahmed", "Akter", "Begum"],
     ID: ["Wijaya", "Suharto", "Sukarno", "Kusuma", "Santoso", "Hidayat"],
     MY: ["Tan", "Lee", "Wong", "Abdullah", "Kumar", "Singh"],
