@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { Calendar, Clock, Users, Globe, Play, X, Trash2, UserCircle2, Info, MoreHorizontal, RefreshCw } from "lucide-react";
+import { Calendar, Clock, Users, Globe, Play, X, Trash2, UserCircle2, Info, MoreHorizontal } from "lucide-react";
 import { Box, CircularProgress } from '@mui/material';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -58,16 +58,14 @@ interface UpcomingMeetingsProps {
   userId: string;
   countries: Record<string, string>;
   onJoinMeeting: (meeting: Schedule) => void;
-  onRejoin: (schedule: { meetingId: string; password: string; quantity: number; duration: number; countryCode: string }) => void;
-  meetings: Schedule[]; // Add meetings prop
-  setMeetings: React.Dispatch<React.SetStateAction<Schedule[]>>; // Add setter prop
+  meetings: Schedule[];
+  setMeetings: React.Dispatch<React.SetStateAction<Schedule[]>>;
 }
 
 const UpcomingMeetings: React.FC<UpcomingMeetingsProps> = ({
   userId,
   countries,
   onJoinMeeting,
-  onRejoin,
   meetings,
   setMeetings,
 }) => {
@@ -121,16 +119,6 @@ const UpcomingMeetings: React.FC<UpcomingMeetingsProps> = ({
     } catch (error) {
       console.error('Failed to delete meeting:', error);
     }
-  };
-
-  const handleRejoin = (schedule: Schedule) => {
-    onRejoin({
-      meetingId: schedule.meetingId,
-      password: schedule.password || "",
-      quantity: schedule.quantity,
-      duration: schedule.duration,
-      countryCode: schedule.countryCode
-    });
   };
 
   const handleShowInfo = (meeting: Schedule) => {
@@ -252,13 +240,6 @@ const UpcomingMeetings: React.FC<UpcomingMeetingsProps> = ({
                 >
                   <Play className="h-3 w-3" />
                   <span>Join</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  className="flex items-center gap-2 text-gray-700 dark:text-gray-300 cursor-pointer text-xs py-1 hover:bg-gray-100 dark:hover:bg-gray-800"
-                  onClick={() => handleRejoin(meeting)}
-                >
-                  <RefreshCw className="h-3 w-3" />
-                  <span>Rejoin</span>
                 </DropdownMenuItem>
                 {meeting.status !== 'cancelled' && (
                   <DropdownMenuItem
@@ -534,15 +515,7 @@ const UpcomingMeetings: React.FC<UpcomingMeetingsProps> = ({
               </>
             )}
           </div>
-          <div className="flex justify-between mt-4">
-            <Button
-              variant="outline"
-              className="bg-gray-50 dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-              onClick={() => selectedMeeting && handleRejoin(selectedMeeting)}
-            >
-              <RefreshCw className="h-3 w-3 mr-1" />
-              Rejoin
-            </Button>
+          <div className="flex justify-end mt-4">
             <DialogClose asChild>
               <Button variant="outline" className="bg-gray-50 dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
                 Close
