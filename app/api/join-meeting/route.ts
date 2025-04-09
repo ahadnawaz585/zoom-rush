@@ -168,7 +168,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   console.log(`[${new Date().toISOString()}] Received join meeting request`);
   const body = (await req.json()) as JoinRequest;
   let { bots, meetingId, password, botCount = 0,duration} = body;
-
+console.log("request recieved:", bots, meetingId, password, botCount,duration)
   if (!meetingId || !password) {
     console.error(`[${new Date().toISOString()}] Missing required fields`);
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -182,7 +182,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "No bots provided" }, { status: 400 });
   }
 
-  const origin = process.env.NEXT_PUBLIC_ZOOM_REDIRECT_URI || req.headers.get("origin") || "";
+  const origin = process.env.NEXT_PUBLIC_CLIENT_URL || 'https://zoom-bots.vercel.app' ;
   console.log(`[${new Date().toISOString()}] Using origin: ${origin}`);
   const signature = generateSignature(meetingId, 0, duration);
 

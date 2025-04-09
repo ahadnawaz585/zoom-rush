@@ -20,7 +20,7 @@ export interface Schedule {
   scheduledDate?: string;
   scheduledTime?: string;
   status: 'scheduled' | 'cancelled' | 'completed';
-  bots: Bot[];
+  bots: any;
   userId: string;
   createdAt: any;
   updatedAt?: any;
@@ -61,7 +61,7 @@ export const getPreviousSchedules = async (userId: string): Promise<Schedule[]> 
 
 export const saveUpcomingMeeting = async (meeting: Omit<Schedule, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> => {
   try {
-    const normalizedBots = meeting.bots.map(bot => ({
+    const normalizedBots = meeting.bots.map((bot:any) => ({
       id: bot.id,
       name: bot.name,
       countryCode: bot.countryCode,

@@ -26,7 +26,7 @@ interface Bot {
 }
 
 interface BotListProps {
-  bots: Bot[];
+  bots: any[];
   loading: boolean;
 }
 

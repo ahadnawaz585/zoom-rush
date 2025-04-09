@@ -10,7 +10,7 @@ ZoomMtg.preLoadWasm();
 ZoomMtg.prepareWebSDK();
 
 function Meeting() {
-  const searchParams = useSearchParams();
+  const searchParams:any = useSearchParams();
   const username = searchParams.get("username") || "JohnDoe";
   const meetingId = searchParams.get("meetingId") || "88696681332";
   const password = searchParams.get("password") || "16HHw1";

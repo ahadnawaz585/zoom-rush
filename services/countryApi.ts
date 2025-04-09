@@ -1,5 +1,5 @@
 // services/countryApi.ts
-import { countries } from '@/lib/botUtils';
+import { countries } from "@/app/data/constants";
 
 export interface Country {
   code: string;
@@ -24,7 +24,7 @@ export async function fetchCountries(): Promise<Country[]> {
     
     // Check if response is ok before parsing
     if (!response.ok) {
-      throw new Error(`API responded with status: ${response.status}`);
+      throw new Error('API responded with status: ${response.status}');
     }
     
     const data = await response.json();

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { Home, Video } from "lucide-react";
+
 import { withUserEnabled } from '@/components/HOC/withUserEnabled';
 import { toast } from "sonner";
 import MeetingForm from "@/components/shared/meeting-form";
@@ -63,7 +64,7 @@ const DarkModeScript = () => {
 };
 
 function Page() {
-  const [generatedBots, setGeneratedBots] = useState<Bot[]>([]);
+  const [generatedBots, setGeneratedBots] = useState<any[]>([]);
   const [isJoining, setIsJoining] = useState(false);
   const [countries, setCountries] = useState<Country[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -249,7 +250,8 @@ function Page() {
         duration: joinFormValues.duration
       };
 
-      const response = await fetch("/api/join-meeting", {
+      const url  =  process.env.NEXT_PUBLIC_SERVER_URL || "https://zoomnrush.com/zoombotic";
+      const response = await fetch(`${url}/join-meeting`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(requestBody),
@@ -424,7 +426,7 @@ function Page() {
               />
             </div>
             <div className="mt-4 md:mt-6">
-              <DashboardGraphs schedules={dashboardData} />
+              <DashboardGraphs  />
             </div>
             <div className="mt-4 md:mt-6">
               <PreviousSchedule
