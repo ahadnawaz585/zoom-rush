@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { Calendar, Clock, Users, Globe, Play, X, Trash2, UserCircle2, Info, MoreHorizontal, RefreshCw } from "lucide-react";
+import { Calendar, Clock, Users, Globe, Play, X, Trash2, UserCircle2, Info, MoreHorizontal } from "lucide-react";
 import { Box, CircularProgress } from '@mui/material';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -58,16 +58,14 @@ interface UpcomingMeetingsProps {
   userId: string;
   countries: Record<string, string>;
   onJoinMeeting: (meeting: Schedule) => void;
-  onRejoin: (schedule: { meetingId: string; password: string; quantity: number; duration: number; countryCode: string }) => void;
-  meetings: Schedule[]; // Add meetings prop
-  setMeetings: React.Dispatch<React.SetStateAction<Schedule[]>>; // Add setter prop
+  meetings: Schedule[];
+  setMeetings: React.Dispatch<React.SetStateAction<Schedule[]>>;
 }
 
 const UpcomingMeetings: React.FC<UpcomingMeetingsProps> = ({
   userId,
   countries,
   onJoinMeeting,
-  onRejoin,
   meetings,
   setMeetings,
 }) => {
@@ -123,16 +121,6 @@ const UpcomingMeetings: React.FC<UpcomingMeetingsProps> = ({
     }
   };
 
-  const handleRejoin = (schedule: Schedule) => {
-    onRejoin({
-      meetingId: schedule.meetingId,
-      password: schedule.password || "",
-      quantity: schedule.quantity,
-      duration: schedule.duration,
-      countryCode: schedule.countryCode
-    });
-  };
-
   const handleShowInfo = (meeting: Schedule) => {
     setSelectedMeeting(meeting);
     setIsInfoOpen(true);
@@ -142,9 +130,8 @@ const UpcomingMeetings: React.FC<UpcomingMeetingsProps> = ({
     return meetings.map((meeting) => ({
       id: meeting.id,
       meetingId: meeting.meetingId,
-      schedule: meeting.scheduledDate && meeting.scheduledTime
-        ? formatDate(new Date(`${meeting.scheduledDate}T${meeting.scheduledTime}`))
-        : 'Not scheduled',
+      scheduledDate: meeting.scheduledDate || 'Not scheduled',
+      scheduledTime: meeting.scheduledTime || 'N/A',
       bots: meeting.bots.length,
       duration: `${meeting.duration} mins`,
       country: countries[meeting.countryCode] || meeting.countryCode,
@@ -155,9 +142,19 @@ const UpcomingMeetings: React.FC<UpcomingMeetingsProps> = ({
 
   const columns: GridColDef[] = [
     { field: 'meetingId', headerName: 'Meeting ID', flex: 1, minWidth: 130 },
-    { field: 'schedule', headerName: 'Schedule', flex: 1, minWidth: 150 },
+    { 
+      field: 'scheduledDate', 
+      headerName: 'Date', 
+      flex: 1, 
+      minWidth: 120 
+    },
+    { 
+      field: 'scheduledTime', 
+      headerName: 'Time', 
+      width: 100 
+    },
     {
-      field: 'bots',
+      field: 'idr',
       headerName: 'Bots',
       width: 80,
       renderCell: (params: GridRenderCellParams) => {
@@ -252,13 +249,6 @@ const UpcomingMeetings: React.FC<UpcomingMeetingsProps> = ({
                 >
                   <Play className="h-3 w-3" />
                   <span>Join</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  className="flex items-center gap-2 text-gray-700 dark:text-gray-300 cursor-pointer text-xs py-1 hover:bg-gray-100 dark:hover:bg-gray-800"
-                  onClick={() => handleRejoin(meeting)}
-                >
-                  <RefreshCw className="h-3 w-3" />
-                  <span>Rejoin</span>
                 </DropdownMenuItem>
                 {meeting.status !== 'cancelled' && (
                   <DropdownMenuItem
@@ -534,15 +524,7 @@ const UpcomingMeetings: React.FC<UpcomingMeetingsProps> = ({
               </>
             )}
           </div>
-          <div className="flex justify-between mt-4">
-            <Button
-              variant="outline"
-              className="bg-gray-50 dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-              onClick={() => selectedMeeting && handleRejoin(selectedMeeting)}
-            >
-              <RefreshCw className="h-3 w-3 mr-1" />
-              Rejoin
-            </Button>
+          <div className="flex justify-end mt-4">
             <DialogClose asChild>
               <Button variant="outline" className="bg-gray-50 dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
                 Close
