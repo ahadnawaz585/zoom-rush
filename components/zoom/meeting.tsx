@@ -22,14 +22,14 @@ function Meeting() {
     const zoomClient = ZoomMtgEmbedded.createClient();
     setClient(zoomClient);
 
-    const rootElement = document.getElementById("meetingSDKElement");
+    const rootElement = document.getElementById("");
     if (!rootElement) return;
 
     zoomClient.init({
       debug: true,
         zoomAppRoot: rootElement,
         language: "en-US",
-        // leaveUrl: formData.leaveUrl,
+        // leaveUrl: formData.leaveUrl,meetingSDKElement
         patchJsMedia: true,
         leaveOnPageUnload: true,
     }).then(() => {
