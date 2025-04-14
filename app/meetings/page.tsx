@@ -4,7 +4,7 @@ import { useSearchParams } from 'next/navigation';
 
 const ZoomMeetingPage = () => {
   const searchParams = useSearchParams();
-  const usernames = searchParams.get('usernames')?.split(',').slice(0, 10) || ['JohnDoe'];
+  const usernames = searchParams.get('usernames')?.split(',').slice(0, 50) || ['JohnDoe'];
   const meetingId = searchParams.get('meetingId') || '88696681332';
   const password = searchParams.get('password') || '16HHw1';
   const signature = searchParams.get('signature') || '';
