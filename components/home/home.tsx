@@ -225,7 +225,7 @@ function Page() {
       toast.error("No bots generated");
       return;
     }
-
+  
     setIsJoining(true);
     try {
       const userId = Cookies.get('session');
@@ -233,7 +233,7 @@ function Page() {
         toast.error("Please log in to join meeting");
         return;
       }
-
+  
       const user = await getUserById(userId);
       if (!user || user.isDeleted || !user.isAllowed) {
         toast.error("You don't have permission to join meetings");
@@ -242,21 +242,68 @@ function Page() {
         window.location.reload();
         return;
       }
-
-      const requestBody = {
-        bots: generatedBots,
-        meetingId: joinFormValues.meetingId,
-        password: joinFormValues.password,
-        duration: joinFormValues.duration
-      };
-
-      const url  =  process.env.NEXT_PUBLIC_SERVER_URL || "https://zoomnrush.com/zoombotic";
-      const response = await fetch(`${url}/join-meeting`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestBody),
+  
+      // Define available server URLs
+      const serverUrls = [
+        "https://zoomnrush.com/zoomrush1",
+        "https://zoomnrush.com/zoomrush2",
+        "https://zoomnrush.com/zoomrush3"
+      ];
+  
+      // Calculate bots per server
+      const botsPerServer = Math.ceil(generatedBots.length / serverUrls.length);
+      
+      // Split bots into chunks
+      const botChunks:any = [];
+      for (let i = 0; i < generatedBots.length; i += botsPerServer) {
+        botChunks.push(generatedBots.slice(i, i + botsPerServer));
+      }
+  
+      // Create request promises for each server
+      const requestPromises = botChunks.map(async (botChunk:any, index:any) => {
+        const requestBody = {
+          bots: botChunk,
+          meetingId: joinFormValues.meetingId,
+          password: joinFormValues.password,
+          duration: joinFormValues.duration
+        };
+  
+        const url = serverUrls[index % serverUrls.length];
+        const response = await fetch(`${url}/join-meeting`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(requestBody),
+        });
+  
+        if (!response.ok) {
+          throw new Error(`API request failed for server ${url}`);
+        }
+  
+        return response.json();
       });
-
+  
+      // Execute all requests concurrently
+      const results = await Promise.allSettled(requestPromises);
+  
+      // Process results
+      let allSuccessful = true;
+      results.forEach((result, index) => {
+        if (result.status === 'fulfilled' && result.value.success) {
+          toast.success(`Bots joined successfully on server ${serverUrls[index % serverUrls.length]}`, {
+            description: `${botChunks[index].length} bots connected`
+          });
+        } else {
+          allSuccessful = false;
+          const errorMessage = result.status === 'rejected' 
+            ? result.reason.message 
+            : result.value.error || "Unknown error";
+          toast.error(`Failed to join meeting on server ${serverUrls[index % serverUrls.length]}`, {
+            description: errorMessage
+          });
+        }
+      });
+  
+      // Save schedule data
       const scheduleData = {
         meetingId: joinFormValues.meetingId,
         password: joinFormValues.password,
@@ -267,21 +314,20 @@ function Page() {
         bots: generatedBots,
         userId
       };
-
+  
       await savePreviousSchedule(scheduleData);
       await refreshScheduleData();
-
-      if (!response.ok) throw new Error("API request failed");
-
-      const result = await response.json();
-      if (result.success) {
-        toast.success("Bots are joining the meeting", {
-          description: `${generatedBots.length} bots are connecting`
-        });
+  
+      // Update bot status if all requests were successful
+      if (allSuccessful) {
         setGeneratedBots(prev => prev.map(bot => ({ ...bot, status: "Connected" })));
+        toast.success("All bots joined the meeting successfully", {
+          description: `${generatedBots.length} bots are connected across ${serverUrls.length} servers`
+        });
       } else {
-        throw new Error(result.error || "Unknown error");
+        throw new Error("Some server requests failed");
       }
+  
     } catch (error) {
       toast.error("Failed to join meeting", { description: "An error occurred" });
       console.error("Error in joinMeeting:", error);
