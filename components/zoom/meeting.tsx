@@ -56,6 +56,8 @@ function Meeting() {
       .then(() => {
         console.log(`Successfully joined meeting ${meetingId} as ${username}`);
         rootElement.setAttribute("data-join-status", "success");
+        // Hide the root element on successful join
+        rootElement.style.display = "none";
 
         // Get current user's ID
         const userId = zoomClient.getCurrentUser()?.userId;
