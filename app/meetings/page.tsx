@@ -13,7 +13,7 @@ const ZoomMeetingPage = () => {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '20px', padding: '20px' }}>
       {usernames.map((username, index) => {
-        const iframeUrl = `https://zoom-bots.vercel.app/meeting?username=${encodeURIComponent(username)}&meetingId=${meetingId}&password=${password}&signature=${signature}`;
+        const iframeUrl = `${process.env.NEXT_PUBLIC_CLIENT_URL}/meeting?username=${encodeURIComponent(username)}&meetingId=${meetingId}&password=${password}&signature=${signature}`;
         return (
           <iframe
             key={index}
