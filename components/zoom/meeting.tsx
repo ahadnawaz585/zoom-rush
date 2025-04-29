@@ -1,126 +1,116 @@
-"use client"
+"use client";
+import { ZoomMtg } from "@zoom/meetingsdk";
+import ZoomMtgEmbedded from "@zoom/meetingsdk/embedded";
+import { useState, useEffect, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 
-import { useEffect, useRef } from "react"
-import { useSearchParams } from "next/navigation"
+// Preload Zoom SDK at module level with minimal setup
+ZoomMtg.setZoomJSLib("https://source.zoom.us/2.18.2/lib", "/av");
+ZoomMtg.preLoadWasm(); // Preload WASM files for faster initialization
+ZoomMtg.prepareWebSDK(); // Prepare SDK with minimal resources
 
-// Minimal Zoom Meeting component optimized for automation
-const ZoomMeeting = () => {
-  const searchParams = useSearchParams()
-  const username = searchParams.get("username") || "JohnDoe"
-  const meetingId = searchParams.get("meetingId") || "88696681332"
-  const password = searchParams.get("password") || "16HHw1"
-  const signature = searchParams.get("signature") || ""
+function Meeting() {
+  const searchParams = useSearchParams();
+  const username = searchParams.get("username") || "JohnDoe";
+  const meetingId = searchParams.get("meetingId") || "88696681332";
+  const password = searchParams.get("password") || "16HHw1";
+  const signature = searchParams.get("signature") || "";
 
-  const meetingElementRef = useRef<HTMLDivElement>(null)
-  const clientRef = useRef<any>(null)
+  const [client, setClient] = useState<any>(null);
+  const isMounted = useRef(true); // Track component mount state
 
   useEffect(() => {
-    let isMounted = true
-    let zoomPromise: Promise<any> | null = null
+    console.log("Starting Zoom meeting initialization", {
+      meetingId,
+      username,
+      hasSignature: !!signature,
+    });
 
-    // Lazy load Zoom SDK only once
-    if (!window.zoomPromise) {
-      // Create a single promise for loading the SDK
-      window.zoomPromise = Promise.all([import("@zoom/meetingsdk"), import("@zoom/meetingsdk/embedded")]).then(
-        ([zoomMtg, zoomEmbedded]) => {
-          const { ZoomMtg } = zoomMtg
-          const ZoomMtgEmbedded = zoomEmbedded.default
-
-          // Configure SDK only once
-          if (!window.zoomSDKLoaded) {
-            ZoomMtg.setZoomJSLib("https://source.zoom.us/2.18.2/lib", "/av")
-            ZoomMtg.preLoadWasm()
-            ZoomMtg.prepareWebSDK()
-            window.zoomSDKLoaded = true
-          }
-
-          return { ZoomMtgEmbedded }
-        },
-      )
+    if (!signature || !process.env.NEXT_PUBLIC_ZOOM_MEETING_SDK_KEY) {
+      console.error("Missing required credentials", {
+        hasSignature: !!signature,
+        hasSdkKey: !!process.env.NEXT_PUBLIC_ZOOM_MEETING_SDK_KEY,
+      });
+      return;
     }
 
-    zoomPromise = window.zoomPromise
+    const rootElement = document.getElementById("meetingSDKElement");
+    if (!rootElement) {
+      console.error("Meeting SDK element not found");
+      return;
+    }
 
-    const initializeZoom = async () => {
+    // Initialize client only once
+    let zoomClient: any;
+    if (!client) {
+      zoomClient = ZoomMtgEmbedded.createClient();
+      setClient(zoomClient);
+      console.log("Zoom client created successfully");
+    } else {
+      zoomClient = client;
+      console.log("Reusing existing Zoom client");
+    }
+
+    // Initialize and join meeting
+    const initAndJoin = async () => {
       try {
-        // Wait for SDK to load
-        const { ZoomMtgEmbedded } = await zoomPromise
-
-        if (!isMounted || !meetingElementRef.current) return
-
-        // Create client only once
-        if (!clientRef.current) {
-          clientRef.current = ZoomMtgEmbedded.createClient()
-        }
-
-        const client = clientRef.current
-
-        // Initialize client with minimal options
-        await client.init({
-          debug: false,
-          zoomAppRoot: meetingElementRef.current,
+        await zoomClient.init({
+          debug: true,
+          zoomAppRoot: rootElement,
           language: "en-US",
           patchJsMedia: true,
           leaveOnPageUnload: true,
-        })
+        });
+        console.log("Zoom client initialized successfully");
 
-        if (!isMounted) return
-
-        // Join meeting
-        await client.join({
-          sdkKey: process.env.NEXT_PUBLIC_ZOOM_MEETING_SDK_KEY || "",
+        await zoomClient.join({
+          sdkKey: process.env.NEXT_PUBLIC_ZOOM_MEETING_SDK_KEY,
           signature,
           meetingNumber: meetingId,
           userName: username,
           password,
-        })
+        });
+        console.log(`Successfully joined meeting ${meetingId} as ${username}`);
+        rootElement.setAttribute("data-join-status", "success");
+        rootElement.style.display = "none";
 
-        if (!isMounted) return
+        // Get current user's ID and mute self
+        const userId = zoomClient.getCurrentUser()?.userId;
+        if (!userId) {
+          console.error("Failed to get current user ID");
+          return;
+        }
+        console.log(`Current user ID: ${userId}`);
 
-        // Get current user's ID and mute audio
-        const userId = client.getCurrentUser()?.userId
-        if (userId) {
-          await client.mute(true, userId)
-        }
-
-        // Add data attribute for Playwright to detect when meeting is joined
-        if (meetingElementRef.current) {
-          meetingElementRef.current.setAttribute("data-meeting-joined", "true")
-        }
-      } catch (err) {
-        console.error("Zoom meeting error:", err)
-        // Add data attribute for Playwright to detect errors
-        if (meetingElementRef.current) {
-          meetingElementRef.current.setAttribute("data-meeting-error", "true")
-        }
+        await zoomClient.mute(true, userId); // Self-mute
+        console.log(`Audio muted successfully for user ${username}`);
+      } catch (error) {
+        console.error(`Error in Zoom meeting process for ${username}:`, {
+          error,
+          meetingId,
+          username,
+        });
+        rootElement.setAttribute("data-join-status", "error");
       }
+    };
+
+    if (isMounted.current) {
+      initAndJoin();
     }
 
-    initializeZoom()
-
-    // Cleanup function
+    // Cleanup on unmount
     return () => {
-      isMounted = false
-      if (clientRef.current) {
-        try {
-          clientRef.current.leave()
-        } catch (err) {
-          console.error("Error leaving meeting:", err)
-        }
+      isMounted.current = false;
+      if (zoomClient) {
+        console.log("Cleaning up Zoom client");
+        zoomClient.leave().catch((err: unknown) => {
+          console.error("Error leaving meeting during cleanup:", err);
+        });
       }
-    }
-  }, [meetingId, username, password, signature])
+    };
+  }, [meetingId, username, password, signature, client]);
 
-  // Only render the container for the Zoom SDK
-  return <div id="meetingSDKElement" ref={meetingElementRef} style={{ width: "100%", height: "100%" }} />
+  return <div id="meetingSDKElement" />;
 }
 
-// Add this to the window object for TypeScript
-declare global {
-  interface Window {
-    zoomSDKLoaded?: boolean
-    zoomPromise?: Promise<any>
-  }
-}
-
-export default ZoomMeeting
+export default Meeting;
