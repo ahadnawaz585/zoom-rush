@@ -10,7 +10,7 @@ ZoomMtg.preLoadWasm();
 ZoomMtg.prepareWebSDK();
 
 function Meeting() {
-  const searchParams:any = useSearchParams();
+  const searchParams = useSearchParams();
   const username = searchParams.get("username") || "JohnDoe";
   const meetingId = searchParams.get("meetingId") || "88696681332";
   const password = searchParams.get("password") || "16HHw1";
@@ -25,27 +25,45 @@ function Meeting() {
     const rootElement = document.getElementById("meetingSDKElement");
     if (!rootElement) return;
 
-    zoomClient.init({
-      debug: true,
+    zoomClient
+      .init({
+        debug: true,
         zoomAppRoot: rootElement,
         language: "en-US",
-        // leaveUrl: formData.leaveUrl,
         patchJsMedia: true,
         leaveOnPageUnload: true,
-    }).then(() => {
-      zoomClient.join({
-        sdkKey: process.env.NEXT_PUBLIC_ZOOM_MEETING_SDK_KEY || "",
-        signature,
-        meetingNumber: meetingId,
-        userName: username,
-        password,
-      }).then(() => {
-        rootElement.setAttribute("data-join-status", "success");
-      }).catch(error => {
-        console.error(`Join failed for ${username}:`, error);
-        rootElement.setAttribute("data-join-status", "error");
-      });
-    }).catch(error => console.error("Init failed:", error));
+      })
+      .then(() => {
+        zoomClient
+          .join({
+            sdkKey: process.env.NEXT_PUBLIC_ZOOM_MEETING_SDK_KEY || "",
+            signature,
+            meetingNumber: meetingId,
+            userName: username,
+            password,
+          })
+          .then(() => {
+            rootElement.setAttribute("data-join-status", "success");
+
+            // Get current user's ID
+            const userId = zoomClient.getCurrentUser()?.userId;
+            if (!userId) {
+              console.error("Failed to get current user ID");
+              return;
+            }
+
+            // Automatically stop audio stream
+            zoomClient.mute(true,userId).catch((error: unknown) => {
+              console.error("Failed to stop audio:", error);
+            });
+          })
+          .catch((error: unknown) => {
+            console.error(`Join failed for ${username}:`, error);
+            rootElement.setAttribute("data-join-status", "error");
+          });
+      })
+      .catch((error: unknown) => console.error("Init failed:", error));
+
   }, [meetingId, username, password, signature]);
 
   return <div id="meetingSDKElement" />;
