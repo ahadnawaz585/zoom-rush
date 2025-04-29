@@ -18,6 +18,7 @@ function Meeting() {
 
   const [client, setClient] = useState<any>(null);
   const isMounted = useRef(true); // Track component mount state
+  const audioRetryCount = useRef(0); // Track mute retries
 
   useEffect(() => {
     console.log("Starting Zoom meeting initialization", {
@@ -51,18 +52,71 @@ function Meeting() {
       console.log("Reusing existing Zoom client");
     }
 
+    // Function to check if audio is joined
+    const isAudioJoined = async (): Promise<boolean> => {
+      try {
+        const attendees = await zoomClient.getAttendeeslist();
+        const currentUser = attendees.find((a: any) => a.userId === zoomClient.getCurrentUser()?.userId);
+        return currentUser?.audioStatus?.isAudioConnected || false;
+      } catch (error) {
+        console.error("Error checking audio status:", error);
+        return false;
+      }
+    };
+
+    // Function to attempt muting with retries
+    const attemptMute = async (userId: string, maxRetries = 3, delayMs = 1000) => {
+      if (audioRetryCount.current >= maxRetries) {
+        console.error(`Max mute retries (${maxRetries}) reached for ${username}`);
+        return;
+      }
+
+      const audioJoined = await isAudioJoined();
+      if (!audioJoined) {
+        console.warn(`Audio not joined for ${username}, retrying (${audioRetryCount.current + 1}/${maxRetries})`);
+        audioRetryCount.current += 1;
+        setTimeout(() => attemptMute(userId, maxRetries, delayMs), delayMs);
+        return;
+      }
+
+      try {
+        await zoomClient.mute(true, userId);
+        console.log(`Audio muted successfully for user ${username}`);
+      } catch (error) {
+        console.error(`Mute failed for ${username}:`, error);
+      }
+    };
+
     // Initialize and join meeting
     const initAndJoin = async () => {
-      try {
-        await zoomClient.init({
-          debug: true,
-          zoomAppRoot: rootElement,
-          language: "en-US",
-          patchJsMedia: true,
-          leaveOnPageUnload: true,
-        });
-        console.log("Zoom client initialized successfully");
+      let initAttempts = 0;
+      const maxInitAttempts = 2;
 
+      while (initAttempts < maxInitAttempts) {
+        try {
+          await zoomClient.init({
+            debug: true,
+            zoomAppRoot: rootElement,
+            language: "en-US",
+            patchJsMedia: true,
+            leaveOnPageUnload: true,
+          });
+          console.log("Zoom client initialized successfully");
+          break; // Exit loop on success
+        } catch (error) {
+          console.error(`Initialization attempt ${initAttempts + 1} failed:`, error);
+          initAttempts++;
+          if (initAttempts >= maxInitAttempts) {
+            console.error("Max initialization attempts reached");
+            rootElement.setAttribute("data-join-status", "error");
+            return;
+          }
+          // Wait before retrying
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        }
+      }
+
+      try {
         await zoomClient.join({
           sdkKey: process.env.NEXT_PUBLIC_ZOOM_MEETING_SDK_KEY,
           signature,
@@ -74,7 +128,7 @@ function Meeting() {
         rootElement.setAttribute("data-join-status", "success");
         rootElement.style.display = "none";
 
-        // Get current user's ID and mute self
+        // Get current user's ID and attempt mute
         const userId = zoomClient.getCurrentUser()?.userId;
         if (!userId) {
           console.error("Failed to get current user ID");
@@ -82,10 +136,10 @@ function Meeting() {
         }
         console.log(`Current user ID: ${userId}`);
 
-        await zoomClient.mute(true, userId); // Self-mute
-        console.log(`Audio muted successfully for user ${username}`);
+        // Attempt to mute with retries
+        await attemptMute(userId);
       } catch (error) {
-        console.error(`Error in Zoom meeting process for ${username}:`, {
+        console.error(`Error in join process for ${username}:`, {
           error,
           meetingId,
           username,
