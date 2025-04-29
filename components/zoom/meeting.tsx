@@ -4,8 +4,8 @@ import ZoomMtgEmbedded from "@zoom/meetingsdk/embedded";
 import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 
-// Preload Zoom SDK at module level with minimal setup
-ZoomMtg.setZoomJSLib("https://source.zoom.us/2.18.2/lib", "/av");
+// Preload Zoom SDK at module level with updated version
+ZoomMtg.setZoomJSLib("https://source.zoom.us/2.20.0/lib", "/av");
 ZoomMtg.preLoadWasm(); // Preload WASM files for faster initialization
 ZoomMtg.prepareWebSDK(); // Prepare SDK with minimal resources
 
@@ -66,14 +66,14 @@ function Meeting() {
       }
     };
 
-    // Function to join computer audio
-    const joinAudio = async () => {
+    // Function to start computer audio
+    const startAudio = async () => {
       try {
-        await zoomClient.joinAudio();
-        console.log(`Computer audio joined successfully for ${username}`);
+        await zoomClient.startAudio();
+        console.log(`Computer audio started successfully for ${username}`);
         return true;
       } catch (error) {
-        console.error(`Failed to join computer audio for ${username}:`, error);
+        console.error(`Failed to start computer audio for ${username}:`, error);
         return false;
       }
     };
@@ -104,7 +104,7 @@ function Meeting() {
     // Initialize and join meeting
     const initAndJoin = async () => {
       let initAttempts = 0;
-      const maxInitAttempts = 2;
+      const maxInitAttempts = 3; // Increased to handle tp.min.js failures
 
       while (initAttempts < maxInitAttempts) {
         try {
@@ -126,7 +126,7 @@ function Meeting() {
             return;
           }
           // Wait before retrying
-          await new Promise((resolve) => setTimeout(resolve, 1000));
+          await new Promise((resolve) => setTimeout(resolve, 1500));
         }
       }
 
@@ -137,6 +137,8 @@ function Meeting() {
           meetingNumber: meetingId,
           userName: username,
           password,
+          // Enable auto-join audio
+          autoJoinAudio: true,
         });
         console.log(`Successfully joined meeting ${meetingId} as ${username}`);
         rootElement.setAttribute("data-join-status", "success");
@@ -150,12 +152,12 @@ function Meeting() {
         }
         console.log(`Current user ID: ${userId}`);
 
-        // Join computer audio and attempt mute
-        const audioJoined = await joinAudio();
-        if (audioJoined) {
+        // Start computer audio and attempt mute
+        const audioStarted = await startAudio();
+        if (audioStarted) {
           await attemptMute(userId);
         } else {
-          console.error(`Skipping mute as audio join failed for ${username}`);
+          console.error(`Skipping mute as audio start failed for ${username}`);
         }
       } catch (error) {
         console.error(`Error in join process for ${username}:`, {
