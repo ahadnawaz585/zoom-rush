@@ -57,15 +57,29 @@ function Meeting() {
       try {
         const attendees = await zoomClient.getAttendeeslist();
         const currentUser = attendees.find((a: any) => a.userId === zoomClient.getCurrentUser()?.userId);
-        return currentUser?.audioStatus?.isAudioConnected || false;
+        const isConnected = currentUser?.audioStatus?.isAudioConnected || false;
+        console.log(`Audio join status for ${username}:`, { isConnected });
+        return isConnected;
       } catch (error) {
         console.error("Error checking audio status:", error);
         return false;
       }
     };
 
+    // Function to join computer audio
+    const joinAudio = async () => {
+      try {
+        await zoomClient.joinAudio();
+        console.log(`Computer audio joined successfully for ${username}`);
+        return true;
+      } catch (error) {
+        console.error(`Failed to join computer audio for ${username}:`, error);
+        return false;
+      }
+    };
+
     // Function to attempt muting with retries
-    const attemptMute = async (userId: string, maxRetries = 3, delayMs = 1000) => {
+    const attemptMute = async (userId: string, maxRetries = 3, delayMs = 2000) => {
       if (audioRetryCount.current >= maxRetries) {
         console.error(`Max mute retries (${maxRetries}) reached for ${username}`);
         return;
@@ -128,7 +142,7 @@ function Meeting() {
         rootElement.setAttribute("data-join-status", "success");
         rootElement.style.display = "none";
 
-        // Get current user's ID and attempt mute
+        // Get current user's ID
         const userId = zoomClient.getCurrentUser()?.userId;
         if (!userId) {
           console.error("Failed to get current user ID");
@@ -136,8 +150,13 @@ function Meeting() {
         }
         console.log(`Current user ID: ${userId}`);
 
-        // Attempt to mute with retries
-        await attemptMute(userId);
+        // Join computer audio and attempt mute
+        const audioJoined = await joinAudio();
+        if (audioJoined) {
+          await attemptMute(userId);
+        } else {
+          console.error(`Skipping mute as audio join failed for ${username}`);
+        }
       } catch (error) {
         console.error(`Error in join process for ${username}:`, {
           error,
