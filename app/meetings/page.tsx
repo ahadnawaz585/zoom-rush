@@ -78,14 +78,6 @@ const ZoomMeetingPage = () => {
         const iframeUrl = buildIframeUrl(username);
         return (
           <div key={index} style={{ position: 'relative' }}>
-            <div style={{ 
-              background: '#f0f0f0', 
-              padding: '5px', 
-              borderRadius: '4px 4px 0 0',
-              borderBottom: '1px solid #ccc' 
-            }}>
-              {username}
-            </div>
             <iframe
               ref={el => {
                 iframeRefs.current[index] = el;
