@@ -4,10 +4,10 @@ import ZoomMtgEmbedded from "@zoom/meetingsdk/embedded";
 import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 
-// Preload Zoom SDK at module level with updated version
-ZoomMtg.setZoomJSLib("https://source.zoom.us/2.20.0/lib", "/av");
-ZoomMtg.preLoadWasm(); // Preload WASM files for faster initialization
-ZoomMtg.prepareWebSDK(); // Prepare SDK with minimal resources
+// Preload Zoom SDK with latest version
+ZoomMtg.setZoomJSLib("https://source.zoom.us/2.21.0/lib", "/av");
+ZoomMtg.preLoadWasm();
+ZoomMtg.prepareWebSDK();
 
 function Meeting() {
   const searchParams = useSearchParams();
@@ -17,8 +17,8 @@ function Meeting() {
   const signature = searchParams.get("signature") || "";
 
   const [client, setClient] = useState<any>(null);
-  const isMounted = useRef(true); // Track component mount state
-  const audioRetryCount = useRef(0); // Track mute retries
+  const isMounted = useRef(true);
+  const audioRetryCount = useRef(0);
 
   useEffect(() => {
     console.log("Starting Zoom meeting initialization", {
@@ -41,7 +41,6 @@ function Meeting() {
       return;
     }
 
-    // Initialize client only once
     let zoomClient: any;
     if (!client) {
       zoomClient = ZoomMtgEmbedded.createClient();
@@ -52,7 +51,6 @@ function Meeting() {
       console.log("Reusing existing Zoom client");
     }
 
-    // Function to check if audio is joined
     const isAudioJoined = async (): Promise<boolean> => {
       try {
         const attendees = await zoomClient.getAttendeeslist();
@@ -66,19 +64,30 @@ function Meeting() {
       }
     };
 
-    // Function to start computer audio
-    const startAudio = async () => {
-      try {
-        await zoomClient.startAudio();
-        console.log(`Computer audio started successfully for ${username}`);
-        return true;
-      } catch (error) {
-        console.error(`Failed to start computer audio for ${username}:`, error);
+    const startAudio = async (maxRetries = 3, delayMs = 2000) => {
+      if (!zoomClient || typeof zoomClient.joinAudio !== "function") {
+        console.error("Zoom client is not initialized or joinAudio is unavailable");
         return false;
       }
+      let attempts = 0;
+      while (attempts < maxRetries) {
+        try {
+          await zoomClient.joinAudio();
+          console.log(`Computer audio started successfully for ${username}`);
+          return true;
+        } catch (error) {
+          console.error(`Audio attempt ${attempts + 1} failed for ${username}:`, error);
+          attempts++;
+          if (attempts >= maxRetries) {
+            console.error("Max audio attempts reached");
+            return false;
+          }
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
+        }
+      }
+      return false;
     };
 
-    // Function to attempt muting with retries
     const attemptMute = async (userId: string, maxRetries = 3, delayMs = 2000) => {
       if (audioRetryCount.current >= maxRetries) {
         console.error(`Max mute retries (${maxRetries}) reached for ${username}`);
@@ -101,13 +110,13 @@ function Meeting() {
       }
     };
 
-    // Initialize and join meeting
     const initAndJoin = async () => {
       let initAttempts = 0;
-      const maxInitAttempts = 3; // Increased to handle tp.min.js failures
+      const maxInitAttempts = 3;
 
       while (initAttempts < maxInitAttempts) {
         try {
+          await ZoomMtg.prepareWebSDK();
           await zoomClient.init({
             debug: true,
             zoomAppRoot: rootElement,
@@ -116,7 +125,7 @@ function Meeting() {
             leaveOnPageUnload: true,
           });
           console.log("Zoom client initialized successfully");
-          break; // Exit loop on success
+          break;
         } catch (error) {
           console.error(`Initialization attempt ${initAttempts + 1} failed:`, error);
           initAttempts++;
@@ -125,7 +134,6 @@ function Meeting() {
             rootElement.setAttribute("data-join-status", "error");
             return;
           }
-          // Wait before retrying
           await new Promise((resolve) => setTimeout(resolve, 1500));
         }
       }
@@ -137,14 +145,12 @@ function Meeting() {
           meetingNumber: meetingId,
           userName: username,
           password,
-          // Enable auto-join audio
           autoJoinAudio: true,
         });
         console.log(`Successfully joined meeting ${meetingId} as ${username}`);
         rootElement.setAttribute("data-join-status", "success");
         rootElement.style.display = "none";
 
-        // Get current user's ID
         const userId = zoomClient.getCurrentUser()?.userId;
         if (!userId) {
           console.error("Failed to get current user ID");
@@ -152,7 +158,6 @@ function Meeting() {
         }
         console.log(`Current user ID: ${userId}`);
 
-        // Start computer audio and attempt mute
         const audioStarted = await startAudio();
         if (audioStarted) {
           await attemptMute(userId);
@@ -173,14 +178,11 @@ function Meeting() {
       initAndJoin();
     }
 
-    // Cleanup on unmount
     return () => {
       isMounted.current = false;
       if (zoomClient) {
         console.log("Cleaning up Zoom client");
-        zoomClient.leave().catch((err: unknown) => {
-          console.error("Error leaving meeting during cleanup:", err);
-        });
+        ZoomMtgEmbedded.destroyClient();
       }
     };
   }, [meetingId, username, password, signature, client]);
