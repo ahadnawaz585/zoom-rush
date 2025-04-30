@@ -7,12 +7,11 @@ import { useSearchParams } from "next/navigation";
 // Preload Zoom SDK with latest version
 ZoomMtg.setZoomJSLib("https://source.zoom.us/2.21.0/lib", "/av");
 ZoomMtg.preLoadWasm();
-ZoomMtg.prepareWebSDK();
 
 function Meeting() {
   const searchParams = useSearchParams();
   const username = searchParams.get("username") || "JohnDoe";
-  const meetingId = searchParams.get("meetingId") || "88696681332";
+  const meetingId = searchParams.get("meetingId") || "98066497454";
   const password = searchParams.get("password") || "16HHw1";
   const signature = searchParams.get("signature") || "";
 
@@ -53,9 +52,7 @@ function Meeting() {
 
     const isAudioJoined = async (): Promise<boolean> => {
       try {
-        const attendees = await zoomClient.getAttendeeslist();
-        const currentUser = attendees.find((a: any) => a.userId === zoomClient.getCurrentUser()?.userId);
-        const isConnected = currentUser?.audioStatus?.isAudioConnected || false;
+        const isConnected = await zoomClient.isAudioConnected();
         console.log(`Audio join status for ${username}:`, { isConnected });
         return isConnected;
       } catch (error) {
@@ -64,22 +61,31 @@ function Meeting() {
       }
     };
 
-    const startAudio = async (maxRetries = 3, delayMs = 2000) => {
-      if (!zoomClient || typeof zoomClient.joinAudio !== "function") {
-        console.error("Zoom client is not initialized or joinAudio is unavailable");
+    const checkAndJoinAudio = async (maxRetries = 3, delayMs = 2000) => {
+      if (!zoomClient) {
+        console.error("Zoom client is not initialized");
         return false;
       }
       let attempts = 0;
       while (attempts < maxRetries) {
         try {
-          await zoomClient.joinAudio();
-          console.log(`Computer audio started successfully for ${username}`);
-          return true;
-        } catch (error) {
-          console.error(`Audio attempt ${attempts + 1} failed for ${username}:`, error);
+          const isConnected = await zoomClient.isAudioConnected();
+          if (isConnected) {
+            console.log(`Audio already connected for ${username}`);
+            return true;
+          }
+          console.warn(`Audio not connected for ${username}, retrying (${attempts + 1}/${maxRetries})`);
           attempts++;
           if (attempts >= maxRetries) {
-            console.error("Max audio attempts reached");
+            console.error("Max audio connection attempts reached");
+            return false;
+          }
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
+        } catch (error) {
+          console.error(`Audio connection check attempt ${attempts + 1} failed:`, error);
+          attempts++;
+          if (attempts >= maxRetries) {
+            console.error("Max audio connection attempts reached");
             return false;
           }
           await new Promise((resolve) => setTimeout(resolve, delayMs));
@@ -110,13 +116,40 @@ function Meeting() {
       }
     };
 
+    const prepareSDKWithRetry = async (maxRetries = 3, delayMs = 1500) => {
+      let attempts = 0;
+      while (attempts < maxRetries) {
+        try {
+          await ZoomMtg.prepareWebSDK();
+          console.log("WebSDK prepared successfully");
+          return true;
+        } catch (error) {
+          console.error(`prepareWebSDK attempt ${attempts + 1} failed:`, error);
+          attempts++;
+          if (attempts >= maxRetries) {
+            console.error("Max prepareWebSDK attempts reached");
+            return false;
+          }
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
+        }
+      }
+      return false;
+    };
+
     const initAndJoin = async () => {
       let initAttempts = 0;
       const maxInitAttempts = 3;
 
+      // Prepare SDK with retry
+      const sdkPrepared = await prepareSDKWithRetry();
+      if (!sdkPrepared) {
+        console.error("Failed to prepare WebSDK after retries");
+        rootElement.setAttribute("data-join-status", "error");
+        return;
+      }
+
       while (initAttempts < maxInitAttempts) {
         try {
-          await ZoomMtg.prepareWebSDK();
           await zoomClient.init({
             debug: true,
             zoomAppRoot: rootElement,
@@ -158,7 +191,7 @@ function Meeting() {
         }
         console.log(`Current user ID: ${userId}`);
 
-        const audioStarted = await startAudio();
+        const audioStarted = await checkAndJoinAudio();
         if (audioStarted) {
           await attemptMute(userId);
         } else {
