@@ -296,10 +296,10 @@ function Meeting() {
       if (muteRetryIntervalRef.current) {
         clearInterval(muteRetryIntervalRef.current);
       }
-      // if (zoomClient) {
-      //   console.log("Cleaning up Zoom client");
-      //   ZoomMtgEmbedded.destroyClient();
-      // }
+      if (zoomClient) {
+        console.log("Cleaning up Zoom client");
+        ZoomMtgEmbedded.destroyClient();
+      }
     };
   }, [meetingId, username, password, signature, client, noAudio]);
 
