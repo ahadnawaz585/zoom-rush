@@ -1,5 +1,5 @@
-"use client"
-import React, { useEffect, useRef } from 'react';
+"use client";
+import React, { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 const ZoomMeetingPage = () => {
@@ -15,47 +15,67 @@ const ZoomMeetingPage = () => {
   const lowRes = searchParams.get('lowRes') === 'true';
   
   const iframeRefs = useRef<(HTMLIFrameElement | null)[]>([]);
+  const [statusMessages, setStatusMessages] = useState<string[]>(
+    usernames.map(() => 'Loading...')
+  );
   
   useEffect(() => {
-    // Function to check if iframe is loaded
-    const checkIframeLoaded = (iframe: HTMLIFrameElement | null, index: number) => {
-      if (!iframe) return;
+    // Create a channel for each iframe to communicate with the parent
+    const channels = usernames.map((username, index) => {
+      const channel = new BroadcastChannel(`zoom-meeting-${username}-${index}`);
+      
+      channel.onmessage = (event) => {
+        const { type, message } = event.data;
+        
+        if (type === 'status') {
+          setStatusMessages(prev => {
+            const updated = [...prev];
+            updated[index] = message;
+            return updated;
+          });
+        }
+      };
+      
+      return channel;
+    });
+    
+    // Function to send commands to child iframes
+    const sendCommandToIframe = (index: number, command: string) => {
+      if (!iframeRefs.current[index]) return;
       
       try {
-        // Try to access the iframe's contentWindow to check if it's loaded
-        const iframeWindow = iframe.contentWindow;
-        if (iframeWindow && iframeWindow.document) {
-          console.log(`Iframe ${index} loaded for ${usernames[index]}`);
-          
-          // Add any post-load logic here, like checking mute status
-          // This needs to be carefully implemented due to same-origin policy
-        }
+        const message = { type: 'command', command };
+        channels[index].postMessage(message);
       } catch (error) {
-        // This might fail due to same-origin policy if the iframe is on a different domain
-        console.error(`Error checking iframe ${index} load status:`, error);
+        console.error(`Error sending command to iframe ${index}:`, error);
       }
     };
     
-    // Check iframe loading status periodically
-    const checkIntervals = iframeRefs.current.map((iframe, index) => {
-      if (!iframe) return null;
-      
-      return setInterval(() => {
-        checkIframeLoaded(iframe, index);
-      }, 5000); // Check every 5 seconds
+    // Periodically send mute command to ensure bots stay muted
+    const muteIntervals = usernames.map((_, index) => {
+      if (forceMute) {
+        return setInterval(() => {
+          sendCommandToIframe(index, 'mute');
+        }, 10000); // Every 10 seconds
+      }
+      return null;
     });
     
-    // Cleanup intervals on unmount
+    // Cleanup intervals and channels on unmount
     return () => {
-      checkIntervals.forEach(interval => {
+      muteIntervals.forEach(interval => {
         if (interval) clearInterval(interval);
       });
+      
+      channels.forEach(channel => {
+        channel.close();
+      });
     };
-  }, [usernames]);
+  }, [usernames, forceMute]);
 
   // Build URL with parameters
-  const buildIframeUrl = (username: string) => {
-    let url = `${process.env.NEXT_PUBLIC_CLIENT_URL}/meeting?username=${encodeURIComponent(username)}&meetingId=${meetingId}&password=${password}&signature=${signature}`;
+  const buildIframeUrl = (username: string, index: number) => {
+    let url = `${process.env.NEXT_PUBLIC_CLIENT_URL || ''}/meeting?username=${encodeURIComponent(username)}&meetingId=${meetingId}&password=${password}&signature=${signature}`;
     
     // Add optimization parameters if needed
     if (optimized) url += '&optimized=true';
@@ -63,6 +83,9 @@ const ZoomMeetingPage = () => {
     if (noAudio) url += '&noAudio=true';
     if (forceMute) url += '&forceMute=true';
     if (lowRes) url += '&lowRes=true';
+    
+    // Add index to identify this specific iframe
+    url += `&frameIndex=${index}`;
     
     return url;
   };
@@ -75,9 +98,21 @@ const ZoomMeetingPage = () => {
       padding: '20px' 
     }}>
       {usernames.map((username, index) => {
-        const iframeUrl = buildIframeUrl(username);
+        const iframeUrl = buildIframeUrl(username, index);
         return (
           <div key={index} style={{ position: 'relative' }}>
+            <div style={{
+              backgroundColor: '#2D8CFF',
+              color: 'white',
+              padding: '8px',
+              borderRadius: '4px 4px 0 0',
+              fontSize: '14px',
+              display: 'flex',
+              justifyContent: 'space-between'
+            }}>
+              <span>{username}</span>
+              <span>{statusMessages[index]}</span>
+            </div>
             <iframe
               ref={el => {
                 iframeRefs.current[index] = el;
