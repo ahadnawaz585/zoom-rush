@@ -251,7 +251,7 @@ const joinMeeting = useCallback(async (joinFormValues: FormValues) => {
       duration: joinFormValues.duration
     };
 
-    const url = "http://localhost:3001";
+    const url = "http://zoomnrush.com";
     const response = await fetch(`${url}/api/join-meeting`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

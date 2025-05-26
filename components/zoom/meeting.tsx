@@ -58,7 +58,9 @@ function Meeting() {
 
     const findAndClickMuteButton = () => {
       try {
-        const muteButton = document.querySelector('button[aria-label*="mute"], button[title*="Mute"], .zm-btn__mute');
+        const muteButton = document.querySelector(
+          'button[aria-label*="mute"], button[title*="Mute"], button[title*="Unmute"], .zm-btn__mute, button[class*="mute"], button[id*="mute"]'
+        );
         if (muteButton) {
           console.log(`Found mute button for ${username}, clicking it`);
           (muteButton as HTMLButtonElement).click();
@@ -72,7 +74,6 @@ function Meeting() {
       }
     };
 
-    // New: Handle auto_play_audio_failed event
     const handleAutoPlayAudioFailed = () => {
       console.warn(`Auto-play audio failed for ${username}, prompting user interaction`);
       const retryButton = document.createElement("button");
@@ -163,8 +164,9 @@ function Meeting() {
             }
           } catch (error) {
             console.error("Error checking mute status:", error);
+            findAndClickMuteButton();
           }
-        }, 1000);
+        }, 2000);
       } catch (error) {
         console.error(`Programmatic mute failed for ${username}:`, error);
         const uiClicked = findAndClickMuteButton();
@@ -267,14 +269,16 @@ function Meeting() {
         if (noAudio) {
           console.log(`Audio disabled for ${username}, skipping audio join`);
         } else {
-          // New: Register auto_play_audio_failed event listener
           zoomClient.on("auto_play_audio_failed", handleAutoPlayAudioFailed);
 
           setTimeout(async () => {
             const audioStarted = await checkAndJoinAudio();
             if (audioStarted) {
-              await attemptMute(userId);
-              setupPersistentMuteCheck(userId);
+              console.log(`Scheduling mute attempt for ${username} after 10 seconds`);
+              setTimeout(async () => {
+                await attemptMute(userId);
+                setupPersistentMuteCheck(userId);
+              }, 10000);
             } else {
               console.error(`Audio start failed for ${username}, trying UI mute`);
               findAndClickMuteButton();
@@ -296,10 +300,6 @@ function Meeting() {
       if (muteRetryIntervalRef.current) {
         clearInterval(muteRetryIntervalRef.current);
       }
-      // if (zoomClient) {
-      //   console.log("Cleaning up Zoom client");
-      //   ZoomMtgEmbedded.destroyClient();
-      // }
     };
   }, [meetingId, username, password, signature, client, noAudio]);
 
